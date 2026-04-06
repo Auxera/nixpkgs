@@ -13,7 +13,7 @@ jobs:
     fmt:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - uses: cachix/install-nix-action@v31
               with:
@@ -26,7 +26,7 @@ jobs:
     flake-check:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - uses: cachix/install-nix-action@v31
               with:
@@ -42,7 +42,7 @@ jobs:
             matrix:
                 system: [x86_64-linux]
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - uses: cachix/install-nix-action@v31
               with:
@@ -51,6 +51,6 @@ jobs:
 
             - name: Build package outputs
               run: |
-                  nix eval --raw .#packages.${{ matrix.system }} \
-                    --apply 'pkgs: builtins.concatStringsSep "\n" (map (name: ".#packages.${{ matrix.system }}.${name}") (builtins.attrNames pkgs))' \
-                    | xargs -r nix build --print-build-logs --system ${{ matrix.system }}
+                  system="${{ matrix.system }}"
+                  expr="pkgs: builtins.concatStringsSep \"\\n\" (map (name: \".#packages.${system}.\" + name) (builtins.attrNames pkgs))"
+                  nix eval --raw ".#packages.${system}" --apply "$expr" | xargs -r nix build --print-build-logs --system "$system"
