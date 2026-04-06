@@ -27,5 +27,4 @@ jobs:
             auto-merge: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.auto-merge == 'true' }}
             pr-labels: dependencies,automated
         secrets:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}

@@ -24,8 +24,6 @@ on:
                 type: string
                 default: "dependencies,automated"
         secrets:
-            GITHUB_TOKEN:
-                required: true
             CACHIX_AUTH_TOKEN:
                 required: false
 
@@ -66,7 +64,7 @@ jobs:
         steps:
             - uses: actions/checkout@v6
               with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
+                  token: ${{ github.token }}
 
             - uses: cachix/install-nix-action@v31
 
@@ -91,7 +89,7 @@ jobs:
             - name: Create pull request
               if: steps.perform.outputs.updated == 'true'
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GH_TOKEN: ${{ github.token }}
                   PR_LABELS: ${{ inputs.pr-labels }}
                   AUTO_MERGE: ${{ inputs.auto-merge }}
                   CHANGELOG_URL: ${{ steps.perform.outputs.changelog }}
