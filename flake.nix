@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    bun2nix.url = "github:nix-community/bun2nix";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     opencode = {
@@ -15,6 +16,7 @@
   outputs = {
     self,
     nixpkgs,
+    bun2nix,
     flake-utils,
     opencode,
     ...
@@ -24,8 +26,11 @@
     ];
   in
     {
-      overlays.default = final: prev:
+      overlays.default = final: prev: let
+        bunOverlay = bun2nix.overlays.default final prev;
+      in
         (import ./overlay.nix final prev)
+        // bunOverlay
         // {
           opencode = opencode.packages.${final.stdenv.hostPlatform.system}.default;
         };

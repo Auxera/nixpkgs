@@ -1,0 +1,30 @@
+name: Update Dependencies
+
+on:
+    schedule:
+        - cron: "0 3 * * *"
+    workflow_dispatch:
+        inputs:
+            packages:
+                description: "Space-separated package names (empty means all)"
+                required: false
+                default: ""
+            inputs:
+                description: "Space-separated flake input names (empty means all)"
+                required: false
+                default: ""
+            auto-merge:
+                description: "Enable PR auto-merge"
+                required: false
+                default: "true"
+
+jobs:
+    update:
+        uses: ./.github/workflows/update-flake.yml
+        with:
+            packages: ${{ github.event.inputs.packages || '' }}
+            inputs: ${{ github.event.inputs.inputs || '' }}
+            auto-merge: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.auto-merge == 'true' }}
+            pr-labels: dependencies,automated
+        secrets:
+            CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}

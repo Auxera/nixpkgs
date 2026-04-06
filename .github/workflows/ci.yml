@@ -1,0 +1,56 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    fmt:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: cachix/install-nix-action@v31
+              with:
+                  extra_nix_config: |
+                      access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+            - name: Alejandra format check
+              run: nix run nixpkgs#alejandra -- --check .
+
+    flake-check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: cachix/install-nix-action@v31
+              with:
+                  extra_nix_config: |
+                      access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+            - name: Flake checks
+              run: nix flake check --print-build-logs
+
+    build:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                system: [x86_64-linux]
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: cachix/install-nix-action@v31
+              with:
+                  extra_nix_config: |
+                      access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build package outputs
+              run: |
+                  system="${{ matrix.system }}"
+                  expr="pkgs: builtins.concatStringsSep \"\\n\" (map (name: \".#packages.${system}.\" + name) (builtins.attrNames pkgs))"
+                  nix eval --raw ".#packages.${system}" --apply "$expr" | xargs -r nix build --print-build-logs --system "$system"
