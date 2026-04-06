@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        system: [x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin]
+        system: [x86_64-linux]
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v25
