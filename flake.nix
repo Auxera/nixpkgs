@@ -37,7 +37,7 @@
         };
         auxeraPkgs = pkgs.auxera;
       in {
-        packages = auxeraPkgs // {default = auxeraPkgs.hello-custom;};
+        packages = auxeraPkgs;
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
           cd ${self}
