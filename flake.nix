@@ -4,9 +4,15 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    bun2nix.url = "github:nix-community/bun2nix";
-    home-manager.url = "github:nix-community/home-manager";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    bun2nix = {
+      url = "github:nix-community/bun2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.systems.follows = "flake-utils/systems";
+    };
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     opencode = {
       url = "github:anomalyco/opencode";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -56,7 +62,7 @@
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
           cd ${self}
-          ${pkgs.alejandra}/bin/alejandra --check .
+          ${pkgs.alejandra}/bin/alejandra --check --exclude '^./pkgs/[^/]+/bun\\.nix$' .
           touch $out
         '';
 

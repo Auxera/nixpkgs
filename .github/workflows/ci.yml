@@ -21,7 +21,7 @@ jobs:
                       access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
             - name: Alejandra format check
-              run: nix run nixpkgs#alejandra -- --check .
+              run: nix run nixpkgs#alejandra -- --check --exclude '^./pkgs/[^/]+/bun\\.nix$' .
 
     flake-check:
         runs-on: ubuntu-latest
