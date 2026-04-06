@@ -1,6 +1,5 @@
 {pkgs, ...}: {
   imports = [
-    ./hello-custom
     ./opencode-notifier-plugin
     ./plannotator-opencode-plugin
   ];
