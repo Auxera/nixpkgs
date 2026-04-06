@@ -6,12 +6,17 @@
     flake-utils.url = "github:numtide/flake-utils";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    opencode = {
+      url = "github:anomalyco/opencode";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
+    opencode,
     ...
   }: let
     systems = [
@@ -19,7 +24,11 @@
     ];
   in
     {
-      overlays.default = import ./overlay.nix;
+      overlays.default = final: prev:
+        (import ./overlay.nix final prev)
+        // {
+          opencode = opencode.packages.${final.stdenv.hostPlatform.system}.default;
+        };
 
       homeManagerModules.default = import ./modules/home-manager;
       homeManagerModules.opencode-notifier-plugin = import ./modules/home-manager/opencode-notifier-plugin;
@@ -33,7 +42,12 @@
         };
         auxera-pkgs = pkgs.auxera;
       in {
-        packages = auxera-pkgs // {default = auxera-pkgs.demo;};
+        packages =
+          auxera-pkgs
+          // {
+            opencode = pkgs.opencode;
+            default = auxera-pkgs.demo;
+          };
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
           cd ${self}
