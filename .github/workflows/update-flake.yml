@@ -1,0 +1,101 @@
+name: Update Flake
+
+on:
+    workflow_call:
+        inputs:
+            packages:
+                description: "Space-separated package names"
+                required: false
+                type: string
+                default: ""
+            inputs:
+                description: "Space-separated flake input names"
+                required: false
+                type: string
+                default: ""
+            auto-merge:
+                description: "Enable auto-merge for update PRs"
+                required: false
+                type: boolean
+                default: true
+            pr-labels:
+                description: "Comma-separated PR labels"
+                required: false
+                type: string
+                default: "dependencies,automated"
+        secrets:
+            GITHUB_TOKEN:
+                required: true
+            CACHIX_AUTH_TOKEN:
+                required: false
+
+permissions:
+    contents: write
+    pull-requests: write
+
+concurrency:
+    group: updates-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    discover:
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.discover.outputs.matrix }}
+            has-updates: ${{ steps.discover.outputs.has-updates }}
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: cachix/install-nix-action@v31
+
+            - id: discover
+              env:
+                  PACKAGES: ${{ inputs.packages }}
+                  INPUTS: ${{ inputs.inputs }}
+              run: .github/ci/discovery.sh
+
+    update:
+        needs: discover
+        if: needs.discover.outputs.has-updates == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+            - uses: cachix/install-nix-action@v31
+
+            - uses: cachix/cachix-action@v16
+              if: ${{ secrets.CACHIX_AUTH_TOKEN != '' }}
+              with:
+                  name: auxera
+                  authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+            - name: Configure git
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            - name: Perform update
+              id: perform
+              env:
+                  SYSTEM: x86_64-linux
+              run: |
+                  .github/ci/update.sh "${{ matrix.type }}" "${{ matrix.name }}"
+
+            - name: Create pull request
+              if: steps.perform.outputs.updated == 'true'
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  PR_LABELS: ${{ inputs.pr-labels }}
+                  AUTO_MERGE: ${{ inputs.auto-merge }}
+                  CHANGELOG_URL: ${{ steps.perform.outputs.changelog }}
+              run: |
+                  .github/ci/create-pr.sh \
+                    "${{ matrix.type }}" \
+                    "${{ matrix.name }}" \
+                    "${{ matrix.current_version }}" \
+                    "${{ steps.perform.outputs.new_version }}"
