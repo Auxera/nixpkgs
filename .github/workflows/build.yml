@@ -21,4 +21,7 @@ jobs:
         with:
           name: auxera
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-      - run: nix build . --print-build-logs --system ${{ matrix.system }}
+      - run: |
+          nix eval --raw .#packages.${{ matrix.system }} \
+            --apply 'pkgs: builtins.concatStringsSep "\n" (map (name: ".#packages.${{ matrix.system }}.${name}") (builtins.attrNames pkgs))' \
+            | xargs -r nix build --print-build-logs --system ${{ matrix.system }}

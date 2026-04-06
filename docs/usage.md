@@ -7,6 +7,7 @@ This repository is intended to be consumed as an overlay-backed package set and 
 - Consume packages from `pkgs.auxera.<package-name>`.
 - Prefer enabling `homeManagerModules` so package assets/config are wired automatically.
 - Bun plugin packages in this repo currently use fixed-output hashes (`outputHash`) for reproducible builds.
+- The flake default package is a tiny `demo` placeholder; use explicit package names for real packages.
 
 Example 1: enable notifier module (no manual XDG file wiring)
 

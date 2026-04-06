@@ -31,10 +31,9 @@
           inherit system;
           overlays = [self.overlays.default];
         };
-        auxeraPkgs = pkgs.auxera;
+        auxera-pkgs = pkgs.auxera;
       in {
-        packages = auxeraPkgs // {default = auxeraPkgs.opencode-notifier-plugin;};
-        defaultPackage = auxeraPkgs.opencode-notifier-plugin;
+        packages = auxera-pkgs // {default = auxera-pkgs.demo;};
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
           cd ${self}
