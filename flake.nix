@@ -25,7 +25,6 @@
       overlays.default = import ./overlay.nix;
 
       homeManagerModules.default = import ./modules/home-manager;
-      homeManagerModules.hello-custom = import ./modules/home-manager/hello-custom;
       homeManagerModules.opencode-notifier-plugin = import ./modules/home-manager/opencode-notifier-plugin;
       homeManagerModules.plannotator-opencode-plugin = import ./modules/home-manager/plannotator-opencode-plugin;
     }
@@ -37,7 +36,8 @@
         };
         auxeraPkgs = pkgs.auxera;
       in {
-        packages = auxeraPkgs;
+        packages = auxeraPkgs // {default = auxeraPkgs.opencode-notifier-plugin;};
+        defaultPackage = auxeraPkgs.opencode-notifier-plugin;
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
           cd ${self}
