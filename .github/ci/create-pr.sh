@@ -63,5 +63,5 @@ else
 fi
 
 if [[ "${auto_merge}" == "true" && -n "${pr_number}" ]]; then
-  gh pr merge "${pr_number}" --auto --squash || true
+  gh pr merge "${pr_number}" --squash --auto --delete-branch || true
 fi

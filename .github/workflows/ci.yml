@@ -2,8 +2,14 @@ name: CI
 
 on:
     pull_request:
+    merge_group:
+        branches: [main]
     push:
         branches: [main]
+
+permissions:
+    statuses: write
+    pull-requests: write
 
 concurrency:
     group: ci-${{ github.workflow }}-${{ github.ref }}

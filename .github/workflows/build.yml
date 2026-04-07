@@ -1,6 +1,8 @@
 name: Build And Publish
 
 on:
+    merge_group:
+        branches: [main]
     push:
         branches: [main]
     workflow_dispatch:
@@ -9,12 +11,52 @@ concurrency:
     group: build-publish-${{ github.ref }}
     cancel-in-progress: true
 
+permissions:
+    contents: read
+
 jobs:
+    discover:
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.discover.outputs.matrix }}
+            has-changes: ${{ steps.discover.outputs.has-changes }}
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Get changed packages
+              id: discover
+              run: |
+                  changed_files=$(git diff --name-only origin/main...HEAD)
+                  
+                  changed_packages=""
+                  for file in $changed_files; do
+                      if [[ "$file" == pkgs/*/* ]]; then
+                          pkg=$(echo "$file" | cut -d'/' -f2)
+                          if [[ -d "pkgs/$pkg" ]]; then
+                              changed_packages="$changed_packages $pkg"
+                          fi
+                      fi
+                  done
+                  
+                  changed_packages=$(echo "$changed_packages" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+                  
+                  if [[ -z "$changed_packages" ]]; then
+                      all_packages=$(ls -1 pkgs/ | grep -v bun.nix | tr '\n' ' ')
+                      changed_packages="$all_packages"
+                  fi
+                  
+                  echo "has_changes=true"
+                  echo "matrix={\"include\": [$(for pkg in $changed_packages; do echo "{\"package\": \"$pkg\"},"; done | head -c -1)]}" >> $GITHUB_OUTPUT
+
     build:
+        needs: discover
+        if: needs.discover.outputs.has-changes == 'true'
         runs-on: ubuntu-latest
         strategy:
-            matrix:
-                system: [x86_64-linux]
+            fail-fast: false
+            matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
         steps:
             - uses: actions/checkout@v6
 
@@ -27,9 +69,9 @@ jobs:
               with:
                   name: auxera
                   authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+                  pushFilter: |
+                      !**/*.drv
 
-            - name: Build package outputs
+            - name: Build ${{ matrix.package }}
               run: |
-                  system="${{ matrix.system }}"
-                  expr="pkgs: builtins.concatStringsSep \"\\n\" (map (name: \".#packages.${system}.\" + name) (builtins.attrNames pkgs))"
-                  nix eval --raw ".#packages.${system}" --apply "$expr" | xargs -r nix build --print-build-logs --system "$system"
+                  nix build --print-build-logs ".#packages.x86_64-linux.${{ matrix.package }}"

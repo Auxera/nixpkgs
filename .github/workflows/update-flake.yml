@@ -24,12 +24,17 @@ on:
                 type: string
                 default: "dependencies,automated"
         secrets:
+            BOT_APP_ID:
+                required: true
+            BOT_PRIVATE_KEY:
+                required: true
             CACHIX_AUTH_TOKEN:
                 required: false
 
 permissions:
     contents: write
     pull-requests: write
+    statuses: write
 
 concurrency:
     group: updates-${{ github.ref }}
@@ -62,11 +67,21 @@ jobs:
             fail-fast: false
             matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
         steps:
+            - name: Generate GitHub App Token
+              id: app-token
+              uses: actions/create-github-app-token@v1
+              with:
+                  app-id: ${{ secrets.BOT_APP_ID }}
+                  private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
             - uses: actions/checkout@v6
               with:
-                  token: ${{ github.token }}
+                  token: ${{ steps.app-token.outputs.token }}
 
             - uses: cachix/install-nix-action@v31
+              with:
+                  extra_nix_config: |
+                      access-tokens = github.com=${{ steps.app-token.outputs.token }}
 
             - uses: cachix/cachix-action@v17
               if: ${{ env.CACHIX_AUTH_TOKEN != '' }}
@@ -76,20 +91,21 @@ jobs:
 
             - name: Configure git
               run: |
-                  git config user.name "github-actions[bot]"
-                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git config user.name "auxera-nixpkgs-updater[bot]"
+                  git config user.email "${{ secrets.BOT_APP_ID }}+auxera-nixpkgs-updater[bot]@users.noreply.github.com"
 
             - name: Perform update
               id: perform
               env:
                   SYSTEM: x86_64-linux
+                  GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
               run: |
                   .github/ci/update.sh "${{ matrix.type }}" "${{ matrix.name }}"
 
             - name: Create pull request
               if: steps.perform.outputs.updated == 'true'
               env:
-                  GH_TOKEN: ${{ github.token }}
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
                   PR_LABELS: ${{ inputs.pr-labels }}
                   AUTO_MERGE: ${{ inputs.auto-merge }}
                   CHANGELOG_URL: ${{ steps.perform.outputs.changelog }}
