@@ -11,7 +11,8 @@
   fetchgit,
   fetchurl,
   ...
-}: {
+}:
+{
   "@antfu/install-pkg@1.1.0" = fetchurl {
     url = "https://registry.npmjs.org/@antfu/install-pkg/-/install-pkg-1.1.0.tgz";
     hash = "sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==";
@@ -4188,6 +4189,14 @@
   "openai@6.10.0" = fetchurl {
     url = "https://registry.npmjs.org/openai/-/openai-6.10.0.tgz";
     hash = "sha512-ITxOGo7rO3XRMiKA5l7tQ43iNNu+iXGFAcf2t+aWVzzqRaS0i7m1K2BhxNdaveB+5eENhO0VY1FkiZzhBk4v3A==";
+  };
+  "overlayscrollbars-react@0.5.6" = fetchurl {
+    url = "https://registry.npmjs.org/overlayscrollbars-react/-/overlayscrollbars-react-0.5.6.tgz";
+    hash = "sha512-E5To04bL5brn9GVCZ36SnfGanxa2I2MDkWoa4Cjo5wol7l+diAgi4DBc983V7l2nOk/OLJ6Feg4kySspQEGDBw==";
+  };
+  "overlayscrollbars@2.14.0" = fetchurl {
+    url = "https://registry.npmjs.org/overlayscrollbars/-/overlayscrollbars-2.14.0.tgz";
+    hash = "sha512-RjV0pqc79kYhQLC3vTcLRb5GLpI1n6qh0Oua3g+bGH4EgNOJHVBGP7u0zZtxoAa0dkHlAqTTSYRb9MMmxNLjig==";
   };
   "p-limit@6.2.0" = fetchurl {
     url = "https://registry.npmjs.org/p-limit/-/p-limit-6.2.0.tgz";
