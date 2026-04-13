@@ -35,4 +35,6 @@ nix run --inputs-from "${repo_root}" bun2nix#bun2nix -- \
   --lock-file "${tmpdir}/src/bun.lock" \
   --output-file "${bun_nix_file}"
 
+nix run nixpkgs#alejandra -- --quiet "${bun_nix_file}"
+
 echo "Updated ${repo} to ${latest_version}"
