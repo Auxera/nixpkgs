@@ -3,8 +3,6 @@ name: Build And Publish
 on:
     merge_group:
         branches: [main]
-    push:
-        branches: [main]
     workflow_dispatch:
 
 concurrency:
@@ -27,28 +25,7 @@ jobs:
 
             - name: Get changed packages
               id: discover
-              run: |
-                  changed_files=$(git diff --name-only origin/main...HEAD)
-                  
-                  changed_packages=""
-                  for file in $changed_files; do
-                      if [[ "$file" == pkgs/*/* ]]; then
-                          pkg=$(echo "$file" | cut -d'/' -f2)
-                          if [[ -d "pkgs/$pkg" ]]; then
-                              changed_packages="$changed_packages $pkg"
-                          fi
-                      fi
-                  done
-                  
-                  changed_packages=$(echo "$changed_packages" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-                  
-                  if [[ -z "$changed_packages" ]]; then
-                      all_packages=$(ls -1 pkgs/ | grep -v bun.nix | tr '\n' ' ')
-                      changed_packages="$all_packages"
-                  fi
-                  
-                  echo "has_changes=true"
-                  echo "matrix={\"include\": [$(for pkg in $changed_packages; do echo "{\"package\": \"$pkg\"},"; done | head -c -1)]}" >> $GITHUB_OUTPUT
+              run: .github/scripts/discover-changed-packages.sh
 
     build:
         needs: discover
