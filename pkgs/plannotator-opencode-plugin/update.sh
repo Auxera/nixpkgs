@@ -40,6 +40,8 @@ nix run --inputs-from "${repo_root}" bun2nix#bun2nix -- \
   --lock-file "${tmpdir}/src/bun.lock" \
   --output-file "${bun_nix_file}"
 
+nix run nixpkgs#alejandra -- --quiet "${bun_nix_file}"
+
 set +e
 build_output="$(nix build .#packages.x86_64-linux.plannotator-opencode-plugin --no-link 2>&1)"
 build_status=$?

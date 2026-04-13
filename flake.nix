@@ -62,7 +62,7 @@
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
           cd ${self}
-          ${pkgs.alejandra}/bin/alejandra --check --exclude '^./pkgs/[^/]+/bun\\.nix$' .
+          ${pkgs.alejandra}/bin/alejandra --check .
           touch $out
         '';
 
