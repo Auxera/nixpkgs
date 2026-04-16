@@ -44,6 +44,7 @@
       homeManagerModules.default = import ./modules/home-manager;
       homeManagerModules.opencode-notifier-plugin = import ./modules/home-manager/opencode-notifier-plugin;
       homeManagerModules.plannotator-opencode-plugin = import ./modules/home-manager/plannotator-opencode-plugin;
+      homeManagerModules.superpowers-opencode-plugin = import ./modules/home-manager/superpowers-opencode-plugin;
     }
     // flake-utils.lib.eachSystem systems (
       system: let
