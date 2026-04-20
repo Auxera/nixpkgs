@@ -154,8 +154,7 @@
         "bun2nix": "bun2nix",
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs",
-        "opencode": "opencode"
+        "nixpkgs": "nixpkgs"
       }
     },
     "systems": {

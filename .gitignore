@@ -5,6 +5,9 @@ result-*
 # Ignore automatically generated direnv output
 .direnv
 
+# Local git worktrees
+.worktrees
+
 # macOS metadata
 .DS_Store
 ._*

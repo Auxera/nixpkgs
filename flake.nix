@@ -13,10 +13,6 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    opencode = {
-      url = "github:anomalyco/opencode";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
@@ -24,7 +20,6 @@
     nixpkgs,
     bun2nix,
     flake-utils,
-    opencode,
     ...
   }: let
     systems = [
@@ -36,10 +31,7 @@
         bunOverlay = bun2nix.overlays.default final prev;
       in
         (import ./overlay.nix final prev)
-        // bunOverlay
-        // {
-          opencode = opencode.packages.${final.stdenv.hostPlatform.system}.default;
-        };
+        // bunOverlay;
 
       homeManagerModules.default = import ./modules/home-manager;
       homeManagerModules.opencode-notifier-plugin = import ./modules/home-manager/opencode-notifier-plugin;
@@ -57,7 +49,7 @@
         packages =
           auxera-pkgs
           // {
-            opencode = pkgs.opencode;
+            opencode = auxera-pkgs.opencode;
             default = auxera-pkgs.demo;
           };
 
