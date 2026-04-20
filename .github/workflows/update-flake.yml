@@ -97,22 +97,53 @@ jobs:
             - name: Perform update
               id: perform
               env:
-                  SYSTEM: ${{ matrix.system }}
+SYSTEM: ${{ matrix.system }}
+                  CURRENT_VERSION: ${{ matrix.current_version }}
                   GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
               run: |
                   .github/ci/update.sh "${{ matrix.type }}" "${{ matrix.name }}"
 
-            - name: Create pull request
+            - name: Upload update artifact
               if: steps.perform.outputs.updated == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ steps.perform.outputs.artifact_name }}
+                  path: ${{ steps.perform.outputs.artifact_dir }}
+                  if-no-files-found: error
+
+    create-prs:
+        needs:
+            - discover
+            - update
+        if: needs.discover.outputs.has-updates == 'true' && needs.update.result == 'success'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Generate GitHub App Token
+              id: app-token
+              uses: actions/create-github-app-token@v1
+              with:
+                  app-id: ${{ secrets.BOT_APP_ID }}
+                  private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+            - uses: actions/checkout@v6
+              with:
+                  token: ${{ steps.app-token.outputs.token }}
+
+            - name: Download update artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: .github/ci/downloaded-artifacts
+
+            - name: Configure git
+              run: |
+                  git config user.name "auxera-updater[bot]"
+                  git config user.email "${{ secrets.BOT_APP_ID }}+auxera-updater[bot]@users.noreply.github.com"
+
+            - name: Create consolidated pull requests
               env:
                   SYSTEM: ${{ matrix.system }}
                   GH_TOKEN: ${{ steps.app-token.outputs.token }}
                   PR_LABELS: ${{ inputs.pr-labels }}
                   AUTO_MERGE: ${{ inputs.auto-merge }}
-                  CHANGELOG_URL: ${{ steps.perform.outputs.changelog }}
               run: |
-                  .github/ci/create-pr.sh \
-                    "${{ matrix.type }}" \
-                    "${{ matrix.name }}" \
-                    "${{ matrix.current_version }}" \
-                    "${{ steps.perform.outputs.new_version }}"
+                  bash .github/ci/collect-and-create-prs.sh

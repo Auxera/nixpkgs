@@ -9,6 +9,7 @@ fi
 type="$1"
 name="$2"
 system="${SYSTEM:-x86_64-linux}"
+current_version="${CURRENT_VERSION:-unknown}"
 
 write_output() {
   local key="$1"
@@ -24,6 +25,37 @@ has_changes() {
   [[ -n "$(git status --porcelain)" ]]
 }
 
+changed_files_json() {
+  git status --porcelain | sed 's/^...//' | jq -Rsc 'split("\n") | map(select(length > 0))'
+}
+
+export_artifact() {
+  local updated="$1"
+  local new_version="$2"
+  local changelog="$3"
+  local files_json="$4"
+  local safe_name safe_system artifact_name artifact_dir
+
+  safe_name="${name//\//-}"
+  safe_system="${system//\//-}"
+  artifact_name="update-${type}-${safe_name}-${safe_system}"
+  artifact_dir=".github/ci/artifacts/${artifact_name}"
+
+  ARTIFACT_DIR="${artifact_dir}" \
+  UPDATE_TYPE="${type}" \
+  UPDATE_NAME="${name}" \
+  UPDATE_SYSTEM="${system}" \
+  UPDATED="${updated}" \
+  CURRENT_VERSION="${current_version}" \
+  NEW_VERSION="${new_version}" \
+  CHANGELOG="${changelog}" \
+  FILES_JSON="${files_json}" \
+  bash .github/ci/export-update-artifact.sh
+
+  write_output "artifact_name" "${artifact_name}"
+  write_output "artifact_dir" "${artifact_dir}"
+}
+
 case "${type}" in
   package)
     if [[ ! -x "pkgs/${name}/update.sh" ]]; then
@@ -35,6 +67,7 @@ case "${type}" in
 
     if ! has_changes; then
       write_output "updated" "false"
+      export_artifact "false" "${current_version}" "" "[]"
       exit 0
     fi
 
@@ -47,6 +80,7 @@ case "${type}" in
     write_output "updated" "true"
     write_output "new_version" "${new_version}"
     write_output "changelog" "${changelog}"
+    export_artifact "true" "${new_version}" "${changelog}" "$(changed_files_json)"
     ;;
 
   flake-input)
@@ -55,6 +89,7 @@ case "${type}" in
 
     if ! has_changes; then
       write_output "updated" "false"
+      export_artifact "false" "${current_version}" "" "[]"
       exit 0
     fi
 
@@ -62,6 +97,7 @@ case "${type}" in
 
     write_output "updated" "true"
     write_output "new_version" "${new_rev:0:8}"
+    export_artifact "true" "${new_rev:0:8}" "" "$(changed_files_json)"
     ;;
 
   *)
