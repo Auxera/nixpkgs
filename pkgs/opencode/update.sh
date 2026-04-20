@@ -5,7 +5,6 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/../.." && pwd)"
 
 hashes_file="${script_dir}/hashes.json"
-bun_nix_file="${script_dir}/bun.nix"
 
 owner="anomalyco"
 repo="opencode"
@@ -31,21 +30,6 @@ jq -n \
   --arg hash "${src_hash}" \
   --arg outputHash "${current_output_hash}" \
   '{version:$version,hash:$hash,outputHash:$outputHash}' >"${hashes_file}"
-
-tmpdir="$(mktemp -d)"
-trap 'rm -rf "${tmpdir}"' EXIT
-git clone --depth 1 --branch "v${latest_version}" "https://github.com/${owner}/${repo}" "${tmpdir}/src"
-
-if [[ -f "${tmpdir}/src/bun.lock" ]]; then
-  nix run --inputs-from "${repo_root}" bun2nix#bun2nix -- \
-    --lock-file "${tmpdir}/src/bun.lock" \
-    --output-file "${bun_nix_file}" \
-    2>/dev/null || true
-
-  if [[ -f "${bun_nix_file}" ]]; then
-    nix run nixpkgs#alejandra -- --quiet "${bun_nix_file}" 2>/dev/null || true
-  fi
-fi
 
 set +e
 build_output="$(nix build .#packages.x86_64-linux.opencode --no-link 2>&1)"

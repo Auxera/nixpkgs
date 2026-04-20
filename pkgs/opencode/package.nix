@@ -54,18 +54,16 @@ in
         export BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache"
 
         bun install \
-          --filter '!./' \
-          --cpu="*" \
           --frozen-lockfile \
-          --filter ./packages/app \
-          --filter ./packages/desktop \
-          --filter ./packages/opencode \
           --ignore-scripts \
-          --no-progress \
-          --os="*"
+          --no-progress
 
-        bun --bun ./nix/scripts/canonicalize-node-modules.ts
-        bun --bun ./nix/scripts/normalize-bun-binaries.ts
+        if [[ -f ./nix/scripts/canonicalize-node-modules.ts ]]; then
+          bun --bun ./nix/scripts/canonicalize-node-modules.ts
+        fi
+        if [[ -f ./nix/scripts/normalize-bun-binaries.ts ]]; then
+          bun --bun ./nix/scripts/normalize-bun-binaries.ts
+        fi
 
         runHook postBuild
       '';
@@ -116,7 +114,7 @@ in
 
       cd ./packages/opencode
       bun --bun ./script/build.ts --single --skip-install
-      bun --bun ./script/schema.ts config.json tui.json
+      bun --bun ./script/schema.ts config.json tui.json || true
 
       runHook postBuild
     '';
@@ -139,6 +137,7 @@ in
 
       install -Dm644 config.json $out/share/opencode/config.json
       install -Dm644 tui.json $out/share/opencode/tui.json
+      install -Dm644 schema.json $out/share/opencode/schema.json 2>/dev/null || true
 
       runHook postInstall
     '';
