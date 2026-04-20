@@ -41,6 +41,9 @@ jobs:
               run: nix flake check --print-build-logs
 
     build:
+        needs:
+            - fmt
+            - flake-check
         strategy:
             fail-fast: false
             matrix:
