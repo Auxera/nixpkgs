@@ -30,7 +30,7 @@ jobs:
     build:
         needs: discover
         if: needs.discover.outputs.has-changes == 'true'
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.runs_on }}
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
@@ -51,4 +51,4 @@ jobs:
 
             - name: Build ${{ matrix.package }}
               run: |
-                  nix build --print-build-logs ".#packages.x86_64-linux.${{ matrix.package }}"
+                  nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"

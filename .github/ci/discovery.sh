@@ -5,6 +5,24 @@ PACKAGES_INPUT="${PACKAGES:-}"
 INPUTS_INPUT="${INPUTS:-}"
 SYSTEM="${SYSTEM:-x86_64-linux}"
 
+systems=(
+  "x86_64-linux"
+  "aarch64-linux"
+  "aarch64-darwin"
+)
+
+runner_for_system() {
+  case "$1" in
+    x86_64-linux) echo "ubuntu-latest" ;;
+    aarch64-linux) echo "ubuntu-24.04-arm" ;;
+    aarch64-darwin) echo "macos-14" ;;
+    *)
+      echo "unsupported system: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
 if [[ -n "${PACKAGES_INPUT}" ]]; then
   mapfile -t package_names < <(tr ' ' '\n' <<<"${PACKAGES_INPUT}" | sed '/^$/d')
 else
@@ -28,16 +46,30 @@ for name in "${package_names[@]:-}"; do
     continue
   fi
 
-  version="$(nix eval --raw ".#packages.${SYSTEM}.${name}.version" 2>/dev/null || true)"
-  if [[ -z "${version}" ]]; then
+  selected_system=""
+  selected_version=""
+  for system in "${systems[@]}"; do
+    version="$(nix eval --raw ".#packages.${system}.${name}.version" 2>/dev/null || true)"
+    if [[ -z "${version}" ]]; then
+      continue
+    fi
+
+    selected_system="${system}"
+    selected_version="${version}"
+    break
+  done
+
+  if [[ -z "${selected_system}" ]]; then
     continue
   fi
 
   matrix_items="$({
     jq -c \
       --arg name "${name}" \
-      --arg version "${version}" \
-      '. + [{type:"package",name:$name,current_version:$version}]' \
+      --arg version "${selected_version}" \
+      --arg system "${selected_system}" \
+      --arg runs_on "$(runner_for_system "${selected_system}")" \
+      '. + [{type:"package",name:$name,current_version:$version,system:$system,runs_on:$runs_on}]' \
       <<<"${matrix_items}"
   })"
 done
@@ -52,7 +84,9 @@ for name in "${input_names[@]:-}"; do
     jq -c \
       --arg name "${name}" \
       --arg current_version "${current_rev:0:8}" \
-      '. + [{type:"flake-input",name:$name,current_version:$current_version}]' \
+      --arg system "${SYSTEM}" \
+      --arg runs_on "$(runner_for_system "${SYSTEM}")" \
+      '. + [{type:"flake-input",name:$name,current_version:$current_version,system:$system,runs_on:$runs_on}]' \
       <<<"${matrix_items}"
   })"
 done

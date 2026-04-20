@@ -60,7 +60,7 @@ jobs:
     update:
         needs: discover
         if: needs.discover.outputs.has-updates == 'true'
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.runs_on }}
         env:
             CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
         strategy:
@@ -97,7 +97,7 @@ jobs:
             - name: Perform update
               id: perform
               env:
-                  SYSTEM: x86_64-linux
+                  SYSTEM: ${{ matrix.system }}
                   GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
               run: |
                   .github/ci/update.sh "${{ matrix.type }}" "${{ matrix.name }}"
