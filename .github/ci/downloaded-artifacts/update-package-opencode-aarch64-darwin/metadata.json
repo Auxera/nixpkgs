@@ -1,0 +1,12 @@
+{
+  "changelog": "",
+  "current_version": "1.14.19",
+  "files_changed": [
+    "pkgs/opencode/hashes.json"
+  ],
+  "name": "opencode",
+  "new_version": "1.14.19",
+  "system": "aarch64-darwin",
+  "type": "package",
+  "updated": true
+}
