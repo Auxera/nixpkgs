@@ -1,0 +1,12 @@
+{
+  "changelog": "",
+  "current_version": "c81775b6",
+  "files_changed": [
+    "flake.lock"
+  ],
+  "name": "home-manager",
+  "new_version": "c555a4a3",
+  "system": "x86_64-linux",
+  "type": "flake-input",
+  "updated": true
+}
