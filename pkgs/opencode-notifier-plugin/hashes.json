@@ -1,4 +1,8 @@
 {
   "version": "0.2.2",
-  "hash": "sha256-9ipV0MG95frNswyCDJu90tTg3lt7tDYTkeiP7T0xZno="
+  "hash": {
+    "x86_64-linux": "sha256-9ipV0MG95frNswyCDJu90tTg3lt7tDYTkeiP7T0xZno=",
+    "aarch64-linux": "sha256-9ipV0MG95frNswyCDJu90tTg3lt7tDYTkeiP7T0xZno=",
+    "aarch64-darwin": "sha256-9ipV0MG95frNswyCDJu90tTg3lt7tDYTkeiP7T0xZno="
+  }
 }

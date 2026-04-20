@@ -10,6 +10,8 @@ bun_nix_file="${script_dir}/bun.nix"
 owner="mohak34"
 repo="opencode-notifier"
 
+supported_systems='["x86_64-linux","aarch64-linux","aarch64-darwin"]'
+
 current_version="$(jq -r '.version' "${hashes_file}")"
 latest_tag="$(curl -fsSL "https://api.github.com/repos/${owner}/${repo}/releases/latest" | jq -r '.tag_name')"
 latest_version="${latest_tag#v}"
@@ -25,7 +27,15 @@ archive_url="https://github.com/${owner}/${repo}/archive/refs/tags/v${latest_ver
 base32_hash="$(nix-prefetch-url --type sha256 --unpack "${archive_url}")"
 src_hash="$(nix hash convert --hash-algo sha256 "${base32_hash}")"
 
-jq -n --arg version "${latest_version}" --arg hash "${src_hash}" '{version:$version,hash:$hash}' >"${hashes_file}"
+jq \
+  --arg version "${latest_version}" \
+  --arg hash "${src_hash}" \
+  --argjson systems "${supported_systems}" \
+  '
+    .version = $version
+    | .hash = ($systems | map({key: ., value: $hash}) | from_entries)
+  ' "${hashes_file}" >"${hashes_file}.tmp"
+mv "${hashes_file}.tmp" "${hashes_file}"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT

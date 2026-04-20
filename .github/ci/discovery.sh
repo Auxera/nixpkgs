@@ -46,32 +46,21 @@ for name in "${package_names[@]:-}"; do
     continue
   fi
 
-  selected_system=""
-  selected_version=""
   for system in "${systems[@]}"; do
     version="$(nix eval --raw ".#packages.${system}.${name}.version" 2>/dev/null || true)"
     if [[ -z "${version}" ]]; then
       continue
     fi
-
-    selected_system="${system}"
-    selected_version="${version}"
-    break
+    matrix_items="$({
+      jq -c \
+        --arg name "${name}" \
+        --arg version "${version}" \
+        --arg system "${system}" \
+        --arg runs_on "$(runner_for_system "${system}")" \
+        '. + [{type:"package",name:$name,current_version:$version,system:$system,runs_on:$runs_on}]' \
+        <<<"${matrix_items}"
+    })"
   done
-
-  if [[ -z "${selected_system}" ]]; then
-    continue
-  fi
-
-  matrix_items="$({
-    jq -c \
-      --arg name "${name}" \
-      --arg version "${selected_version}" \
-      --arg system "${selected_system}" \
-      --arg runs_on "$(runner_for_system "${selected_system}")" \
-      '. + [{type:"package",name:$name,current_version:$version,system:$system,runs_on:$runs_on}]' \
-      <<<"${matrix_items}"
-  })"
 done
 
 for name in "${input_names[@]:-}"; do

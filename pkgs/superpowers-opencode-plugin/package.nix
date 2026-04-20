@@ -4,7 +4,14 @@
   fetchFromGitHub,
 }: let
   versionData = builtins.fromJSON (builtins.readFile ./hashes.json);
-  inherit (versionData) version hash;
+  inherit (versionData) version;
+
+  system = stdenvNoCC.hostPlatform.system;
+
+  hash =
+    if builtins.isAttrs versionData.hash
+    then versionData.hash.${system}
+    else versionData.hash;
 in
   stdenvNoCC.mkDerivation {
     pname = "superpowers-opencode-plugin";
