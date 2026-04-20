@@ -6,6 +6,7 @@
     "aarch64-darwin": "sha256-FOjR+Z58GrKjzDLKdF7EicWGHwF5Yo+pZWuwoyHvfZ4="
   },
   "outputHash": {
-    "x86_64-linux": "sha256-Dj7Vmb5ZAtGw4I0tnQzngJHfnszCZpWQv3HANNbP+SM="
+    "x86_64-linux": "sha256-Dj7Vmb5ZAtGw4I0tnQzngJHfnszCZpWQv3HANNbP+SM=",
+    "aarch64-linux": "sha256-Dj7Vmb5ZAtGw4I0tnQzngJHfnszCZpWQv3HANNbP+SM="
   }
 }
