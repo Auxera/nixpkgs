@@ -29,5 +29,5 @@ done
 matrix_json="${matrix_json%,}"
 matrix_json+="]"
 
-echo "has_changes=true" >> "$GITHUB_OUTPUT"
+echo "has-changes=true" >> "$GITHUB_OUTPUT"
 echo "matrix={\"include\": $matrix_json}" >> "$GITHUB_OUTPUT"
