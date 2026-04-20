@@ -12,8 +12,13 @@ repo="opencode-notifier"
 
 supported_systems='["x86_64-linux","aarch64-linux","aarch64-darwin"]'
 
+github_api_opts=()
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  github_api_opts=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
+
 current_version="$(jq -r '.version' "${hashes_file}")"
-latest_tag="$(curl -fsSL "https://api.github.com/repos/${owner}/${repo}/releases/latest" | jq -r '.tag_name')"
+latest_tag="$(curl -fsSL "${github_api_opts[@]}" "https://api.github.com/repos/${owner}/${repo}/releases/latest" | jq -r '.tag_name')"
 latest_version="${latest_tag#v}"
 
 if [[ "${current_version}" == "${latest_version}" ]]; then
