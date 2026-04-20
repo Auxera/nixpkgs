@@ -8,6 +8,7 @@ This repository is intended to be consumed as an overlay-backed package set and 
 - Prefer enabling `homeManagerModules` so package assets/config are wired automatically.
 - Bun plugin packages in this repo currently use fixed-output hashes (`outputHash`) for reproducible builds.
 - The flake default package is a tiny `demo` placeholder; use explicit package names for real packages.
+- Supported flake systems are `x86_64-linux`, `aarch64-linux`, and `aarch64-darwin` (`x86_64-darwin` is intentionally excluded).
 
 Example 1: enable notifier module (no manual XDG file wiring)
 
@@ -21,7 +22,7 @@ Example 1: enable notifier module (no manual XDG file wiring)
 
   outputs = { nixpkgs, home-manager, auxeraPkgs, ... }:
     let
-      system = "x86_64-linux";
+      system = builtins.currentSystem;
       pkgs = import nixpkgs {
         inherit system;
         overlays = [ auxeraPkgs.overlays.default ];
@@ -54,7 +55,7 @@ Example 2: enable plannotator module with env overrides
 
   outputs = { nixpkgs, home-manager, auxeraPkgs, ... }:
     let
-      system = "x86_64-linux";
+      system = builtins.currentSystem;
       pkgs = import nixpkgs {
         inherit system;
         overlays = [ auxeraPkgs.overlays.default ];

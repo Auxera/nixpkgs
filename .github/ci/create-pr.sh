@@ -14,11 +14,17 @@ new_version="$4"
 labels="${PR_LABELS:-dependencies,automated}"
 auto_merge="${AUTO_MERGE:-false}"
 changelog_url="${CHANGELOG_URL:-}"
+system="${SYSTEM:-}"
 
 if [[ "${type}" == "package" ]]; then
-  branch="update/${name}"
-  title="${name}: ${current_version} -> ${new_version}"
-  body="Automated update of ${name} from ${current_version} to ${new_version}."
+  if [[ -z "${system}" ]]; then
+    echo "SYSTEM must be set for package updates" >&2
+    exit 1
+  fi
+  branch_system="${system//\//-}"
+  branch="update/${name}/${branch_system}"
+  title="${name} (${system}): ${current_version} -> ${new_version}"
+  body="Automated update of ${name} on ${system} from ${current_version} to ${new_version}."
   commit_message="${title}"
   if [[ -n "${changelog_url}" ]]; then
     commit_message="${commit_message}
