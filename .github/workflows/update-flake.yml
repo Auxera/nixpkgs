@@ -97,7 +97,7 @@ jobs:
             - name: Perform update
               id: perform
               env:
-SYSTEM: ${{ matrix.system }}
+                  SYSTEM: ${{ matrix.system }}
                   CURRENT_VERSION: ${{ matrix.current_version }}
                   GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
               run: |
