@@ -1,4 +1,7 @@
-{pkgs}: let
+{
+  pkgs,
+  auxeraLib ? pkgs.auxeraLib or {},
+}: let
   inherit
     (pkgs.lib)
     attrNames
@@ -20,7 +23,7 @@
     dirEntries
   );
 
-  callPackage = pkgs.lib.callPackageWith (pkgs // self);
+  callPackage = pkgs.lib.callPackageWith (pkgs // self // auxeraLib // {inherit callPackage;});
 
   autoPackages = genAttrs packageDirs (name: callPackage (./. + "/${name}") {});
 

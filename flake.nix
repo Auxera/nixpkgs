@@ -29,6 +29,8 @@
     ];
   in
     {
+      lib.readPackageHashes = import ./lib/read-package-hashes.nix;
+
       overlays.default = final: prev: let
         bunOverlay = bun2nix.overlays.default final prev;
       in

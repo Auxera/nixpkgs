@@ -2,6 +2,8 @@
 
 This repository is intended to be consumed as an overlay-backed package set and optional Home Manager module collection.
 
+For repository automation (CI/build/update workflows and updater CLI behavior), see `docs/automation.md`.
+
 - Add `github:auxera/nixpkgs` as an input.
 - Apply `auxeraPkgs.overlays.default` when importing nixpkgs.
 - Consume packages from `pkgs.auxera.<package-name>`.

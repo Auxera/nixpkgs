@@ -23,9 +23,12 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: Get changed packages
-              id: discover
-              run: .github/scripts/discover-changed-packages.sh
+            - uses: cachix/install-nix-action@v31
+
+            - id: discover
+              run: |
+                  CHANGED_FILES="$(git diff --name-only origin/main...HEAD | tr '\n' ' ')"
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts discover-build-targets --changed-files "$CHANGED_FILES"
 
     build:
         needs: discover
@@ -38,9 +41,6 @@ jobs:
             - uses: actions/checkout@v6
 
             - uses: cachix/install-nix-action@v31
-              with:
-                  extra_nix_config: |
-                      access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
             - uses: cachix/cachix-action@v17
               with:
@@ -49,6 +49,5 @@ jobs:
                   pushFilter: |
                       !**/*.drv
 
-            - name: Build ${{ matrix.package }}
-              run: |
-                  nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"
+            - name: Build and push changed package
+              run: nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"

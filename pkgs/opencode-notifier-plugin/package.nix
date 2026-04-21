@@ -1,19 +1,17 @@
 {
   lib,
   stdenvNoCC,
+  readPackageHashes,
   bun2nix,
   bun,
   fetchFromGitHub,
 }: let
-  versionData = builtins.fromJSON (builtins.readFile ./hashes.json);
-  inherit (versionData) version;
-
-  system = stdenvNoCC.hostPlatform.system;
-
-  hash =
-    if builtins.isAttrs versionData.hash
-    then versionData.hash.${system}
-    else versionData.hash;
+  versionData = readPackageHashes {
+    inherit lib stdenvNoCC;
+    packageDir = ./.;
+    needsOutputHash = false;
+  };
+  inherit (versionData) version hash;
 in
   stdenvNoCC.mkDerivation {
     pname = "opencode-notifier-plugin";

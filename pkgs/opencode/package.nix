@@ -1,6 +1,7 @@
 {
   lib,
   stdenvNoCC,
+  readPackageHashes,
   bun,
   fetchFromGitHub,
   makeBinaryWrapper,
@@ -9,22 +10,12 @@
   ripgrep,
   sysctl,
 }: let
-  versionData = builtins.fromJSON (builtins.readFile ./hashes.json);
-  inherit (versionData) version;
-
-  system = stdenvNoCC.hostPlatform.system;
-
-  hash =
-    if builtins.isAttrs versionData.hash
-    then versionData.hash.${system}
-    else versionData.hash;
-
-  outputHash =
-    if !(versionData ? outputHash)
-    then lib.fakeHash
-    else if builtins.isAttrs versionData.outputHash
-    then versionData.outputHash.${system} or lib.fakeHash
-    else versionData.outputHash;
+  versionData = readPackageHashes {
+    inherit lib stdenvNoCC;
+    packageDir = ./.;
+    needsOutputHash = true;
+  };
+  inherit (versionData) version hash outputHash;
 in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "opencode";
