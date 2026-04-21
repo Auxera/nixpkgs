@@ -3,6 +3,8 @@ import { writeGithubOutput } from "./lib/github-output";
 import { exec } from "./lib/exec";
 import { discoverBuildTargets } from "./commands/discover-build-targets";
 import { discoverUpdates } from "./commands/discover-updates";
+import { applyUpdate } from "./commands/apply-update";
+import { composePrs } from "./commands/compose-prs";
 
 export type CliResult = {
   exitCode: number;
@@ -154,6 +156,50 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     return {
       exitCode: 0,
       stdout: JSON.stringify({ matrix: result.matrix, hasUpdates: result.hasUpdates }),
+      stderr: "",
+    };
+  }
+
+  if (command === "apply-update") {
+    const type = parseFlagValue(argv, "--type") as "package" | "flake-input";
+    const name = parseFlagValue(argv, "--name");
+    const system = parseFlagValue(argv, "--system");
+    const currentVersion = parseFlagValue(argv, "--current-version");
+    const isPrimary = parseFlagValue(argv, "--is-primary") === "true";
+
+    const result = await applyUpdate({
+      type,
+      name,
+      system,
+      currentVersion,
+      isPrimary,
+    });
+
+    writeGithubOutput("updated", result.updated ? "true" : "false");
+    writeGithubOutput("new_version", result.newVersion);
+    writeGithubOutput("artifact_name", result.artifactName);
+    writeGithubOutput("artifact_dir", result.artifactDir);
+
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify(result),
+      stderr: "",
+    };
+  }
+
+  if (command === "compose-prs") {
+    const artifactRoot = parseFlagValue(argv, "--artifact-root");
+    const autoMerge = parseFlagValue(argv, "--auto-merge") === "true";
+    const labels = parseSpaceSeparated(parseFlagValue(argv, "--labels"));
+    const processed = await composePrs({
+      artifactRoot,
+      autoMerge,
+      labels: labels.length > 0 ? labels : ["dependencies", "automated"],
+    });
+
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify({ processed }),
       stderr: "",
     };
   }

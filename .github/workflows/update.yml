@@ -18,15 +18,75 @@ on:
                 required: false
                 default: "true"
 
+permissions:
+    contents: write
+    pull-requests: write
+
 jobs:
+    discover:
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.discover.outputs.matrix }}
+            has-updates: ${{ steps.discover.outputs.has-updates }}
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: cachix/install-nix-action@v31
+
+            - id: discover
+              env:
+                  PACKAGES: ${{ github.event.inputs.packages || '' }}
+                  INPUTS: ${{ github.event.inputs.inputs || '' }}
+              run: nix run nixpkgs#bun -- tools/update-cli/src/main.ts discover-updates --packages "$PACKAGES" --inputs "$INPUTS"
+
     update:
-        uses: ./.github/workflows/update-flake.yml
-        with:
-            packages: ${{ github.event.inputs.packages || '' }}
-            inputs: ${{ github.event.inputs.inputs || '' }}
-            auto-merge: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.auto-merge == 'true' }}
-            pr-labels: dependencies,automated
-        secrets:
-            BOT_APP_ID: ${{ secrets.BOT_APP_ID }}
-            BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
-            CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        needs: discover
+        if: needs.discover.outputs.has-updates == 'true'
+        runs-on: ${{ matrix.runs_on }}
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: cachix/install-nix-action@v31
+
+            - uses: cachix/cachix-action@v17
+              with:
+                  name: auxera
+                  authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+            - id: apply
+              run: |
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts apply-update \
+                    --type "${{ matrix.type }}" \
+                    --name "${{ matrix.name }}" \
+                    --system "${{ matrix.system }}" \
+                    --current-version "${{ matrix.current_version }}" \
+                    --is-primary "${{ matrix.is_primary || 'false' }}"
+
+            - uses: actions/upload-artifact@v4
+              if: steps.apply.outputs.updated == 'true'
+              with:
+                  name: ${{ steps.apply.outputs.artifact_name }}
+                  path: ${{ steps.apply.outputs.artifact_dir }}
+                  if-no-files-found: error
+
+    compose-prs:
+        needs:
+            - discover
+            - update
+        if: needs.discover.outputs.has-updates == 'true' && needs.update.result == 'success'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: actions/download-artifact@v4
+              with:
+                  path: .tmp/update-artifacts
+
+            - run: |
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts compose-prs \
+                    --artifact-root .tmp/update-artifacts \
+                    --auto-merge "${{ github.event.inputs.auto-merge || 'true' }}" \
+                    --labels "dependencies automated"
