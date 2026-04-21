@@ -83,10 +83,11 @@ async function listFlakeInputs(): Promise<string[]> {
   const evalResult = await exec([
     "nix",
     "eval",
+    "--impure",
     "--json",
     ".#",
     "--apply",
-    "_: builtins.attrNames (builtins.fromJSON (builtins.readFile ./flake.lock).nodes)",
+    "_: builtins.attrNames (builtins.fromJSON (builtins.readFile ./flake.lock)).nodes",
   ]);
 
   if (evalResult.exitCode !== 0) {

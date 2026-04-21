@@ -27,13 +27,6 @@
 
   autoPackages = genAttrs packageDirs (name: callPackage (./. + "/${name}") {});
 
-  overrides = {
-    demo = pkgs.writeTextFile {
-      name = "auxera-demo";
-      text = "This is the Auxera demo default package.\n";
-    };
-  };
-
-  self = autoPackages // overrides;
+  self = autoPackages;
 in
-  removeAttrs self ["default"]
+  self

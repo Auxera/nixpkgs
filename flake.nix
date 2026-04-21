@@ -54,7 +54,7 @@
           auxera-pkgs
           // {
             opencode = auxera-pkgs.opencode;
-            default = auxera-pkgs.demo;
+            default = auxera-pkgs.opencode;
           };
 
         checks.formatting = pkgs.runCommand "alejandra-check" {} ''
