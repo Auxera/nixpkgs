@@ -1,3 +1,5 @@
+import { migrateHashes } from "./commands/migrate-hashes";
+
 export type CliResult = {
   exitCode: number;
   stdout: string;
@@ -34,6 +36,15 @@ export async function runCli(argv: string[]): Promise<CliResult> {
       exitCode: 2,
       stdout: "",
       stderr: `Unknown command: ${command}\n${usage()}`,
+    };
+  }
+
+  if (command === "migrate-hashes") {
+    await migrateHashes(process.cwd());
+    return {
+      exitCode: 0,
+      stdout: "migrated hashes files",
+      stderr: "",
     };
   }
 

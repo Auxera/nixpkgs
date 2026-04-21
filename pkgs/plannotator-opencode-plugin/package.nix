@@ -1,24 +1,17 @@
 {
   lib,
   stdenvNoCC,
+  readPackageHashes,
   bun,
   nodejs,
   fetchFromGitHub,
 }: let
-  versionData = builtins.fromJSON (builtins.readFile ./hashes.json);
-  inherit (versionData) version;
-
-  system = stdenvNoCC.hostPlatform.system;
-
-  hash =
-    if builtins.isAttrs versionData.hash
-    then versionData.hash.${system}
-    else versionData.hash;
-
-  outputHash =
-    if builtins.isAttrs versionData.outputHash
-    then versionData.outputHash.${system} or lib.fakeHash
-    else versionData.outputHash;
+  versionData = readPackageHashes {
+    inherit lib stdenvNoCC;
+    packageDir = ./.;
+    needsOutputHash = true;
+  };
+  inherit (versionData) version hash outputHash;
 in
   stdenvNoCC.mkDerivation {
     pname = "plannotator-opencode-plugin";

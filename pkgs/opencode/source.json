@@ -4,9 +4,5 @@
     "x86_64-linux": "sha256-kKFqMf+l+V1kaf6bZtKfUSRYYjKc3VNgxlxic2fM2fo=",
     "aarch64-linux": "sha256-kKFqMf+l+V1kaf6bZtKfUSRYYjKc3VNgxlxic2fM2fo=",
     "aarch64-darwin": "sha256-kKFqMf+l+V1kaf6bZtKfUSRYYjKc3VNgxlxic2fM2fo="
-  },
-  "outputHash": {
-    "x86_64-linux": "sha256-qF2NHX0T6z3G2fn7NTyFlRIPQ1j0bkzljw94sFiiUmw=",
-    "aarch64-linux": "sha256-3GvkLpbE7+mxixrRJ7gIGX2GkKTxtaq7k7gC02GQXlI="
   }
 }
