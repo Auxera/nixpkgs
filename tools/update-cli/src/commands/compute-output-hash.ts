@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { exec } from "../lib/exec";
+import { exec, checkedExec } from "../lib/exec";
 import { parseOutputHashFromBuildLog } from "./apply-update";
 import { writeGithubOutput } from "../lib/github-output";
 
@@ -11,8 +11,8 @@ export async function computeOutputHash(args: {
   hash: string | null;
   artifactName: string;
 }> {
-  await exec(["git", "fetch", "origin", args.branch]);
-  await exec(["git", "checkout", args.branch]);
+  await checkedExec(["git", "fetch", "origin", args.branch]);
+  await checkedExec(["git", "checkout", args.branch]);
 
   const buildResult = await exec([
     "nix",

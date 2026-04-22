@@ -62,3 +62,11 @@ export async function exec(command: string[], options: ExecOptions = {}): Promis
 
   return { stdout, stderr, exitCode };
 }
+
+export async function checkedExec(command: string[], options: ExecOptions = {}): Promise<ExecResult> {
+  const result = await exec(command, options);
+  if (result.exitCode !== 0) {
+    throw new Error(`command failed: ${command.join(" ")}\n${result.stderr}`);
+  }
+  return result;
+}

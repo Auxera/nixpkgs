@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { exec } from "../lib/exec";
+import { exec, checkedExec } from "../lib/exec";
 
 export function parseOutputHashFromBuildLog(log: string): string | null {
   const match = log.match(/got:\s*(sha256-[A-Za-z0-9+/=]+)/m);
@@ -84,10 +84,10 @@ export async function applyUpdate(args: {
     }
 
     const branch = "update/flake-inputs";
-    await exec(["git", "checkout", "-b", branch]);
-    await exec(["git", "add", "flake.lock"]);
-    await exec(["git", "commit", "-m", "flake.lock: update all inputs"]);
-    await exec(["git", "push", "--force", "origin", branch]);
+    await checkedExec(["git", "checkout", "-b", branch]);
+    await checkedExec(["git", "add", "flake.lock"]);
+    await checkedExec(["git", "commit", "-m", "flake.lock: update all inputs"]);
+    await checkedExec(["git", "push", "--force", "origin", branch]);
 
     return { updated: true, newVersion: "updated", branch };
   }
@@ -98,10 +98,10 @@ export async function applyUpdate(args: {
   await clearOutputHashes(args.name, args.systemsNeedingOutputHash);
 
   const branch = `update/${args.name}`;
-  await exec(["git", "checkout", "-b", branch]);
-  await exec(["git", "add", `pkgs/${args.name}`]);
-  await exec(["git", "commit", "-m", `${args.name}: ${args.currentVersion} -> ${newVersion}`]);
-  await exec(["git", "push", "--force", "origin", branch]);
+  await checkedExec(["git", "checkout", "-b", branch]);
+  await checkedExec(["git", "add", `pkgs/${args.name}`]);
+  await checkedExec(["git", "commit", "-m", `${args.name}: ${args.currentVersion} -> ${newVersion}`]);
+  await checkedExec(["git", "push", "--force", "origin", branch]);
 
   return { updated: true, newVersion, branch };
 }

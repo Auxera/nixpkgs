@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { exec } from "../lib/exec";
+import { exec, checkedExec } from "../lib/exec";
 
 async function upsertPr(args: {
   branch: string;
@@ -106,8 +106,8 @@ export async function finalizePr(args: {
   autoMerge: boolean;
   labels: string[];
 }): Promise<number> {
-  await exec(["git", "fetch", "origin", args.branch]);
-  await exec(["git", "checkout", args.branch]);
+  await checkedExec(["git", "fetch", "origin", args.branch]);
+  await checkedExec(["git", "checkout", args.branch]);
 
   if (args.type === "package") {
     const hashes = await collectHashFiles(args.artifactRoot, args.name);
@@ -119,9 +119,9 @@ export async function finalizePr(args: {
 
     const changed = hashes.size > 0;
     if (changed) {
-      await exec(["git", "add", `pkgs/${args.name}/output-hashes`]);
-      await exec(["git", "commit", "-m", `${args.name}: add output hashes`]);
-      await exec(["git", "push", "origin", args.branch]);
+      await checkedExec(["git", "add", `pkgs/${args.name}/output-hashes`]);
+      await checkedExec(["git", "commit", "-m", `${args.name}: add output hashes`]);
+      await checkedExec(["git", "push", "origin", args.branch]);
     }
   }
 
