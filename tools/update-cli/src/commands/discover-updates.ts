@@ -45,18 +45,23 @@ export async function discoverUpdates(args: {
 
   for (const pkg of args.packages) {
     if (packageFilter.size > 0 && !packageFilter.has(pkg.name)) {
+      console.log(`[discover] skipping ${pkg.name}: not in selected packages`);
       continue;
     }
 
     if (!args.hashRefresh) {
       const latest = await args.getLatestVersion(pkg.name);
       if (!latest) {
+        console.log(`[discover] skipping ${pkg.name}: could not determine latest version (owner=${pkg.sourceInfo.owner}, repo=${pkg.sourceInfo.repo})`);
         continue;
       }
 
       if (pkg.version === latest) {
+        console.log(`[discover] skipping ${pkg.name}: already up to date (${pkg.version})`);
         continue;
       }
+
+      console.log(`[discover] update available: ${pkg.name} ${pkg.version} -> ${latest}`);
 
       const systemsNeedingHash = pkg.needsOutputHash
         ? PLATFORMS.filter((p) => pkg.platforms.includes(p.system)).map((p) => p.system)
@@ -84,6 +89,7 @@ export async function discoverUpdates(args: {
         });
       }
     } else {
+      console.log(`[discover] hash-refresh: ${pkg.name} at ${pkg.version}`);
       const systemsNeedingHash = pkg.needsOutputHash
         ? PLATFORMS.filter((p) => pkg.platforms.includes(p.system)).map((p) => p.system)
         : [];
@@ -125,6 +131,8 @@ export async function discoverUpdates(args: {
       has_bun_nix: false,
     });
   }
+
+  console.log(`[discover] summary: ${applyInclude.length} update(s) to apply, ${hashInclude.length} output hash(es) to compute`);
 
   return {
     hasUpdates: applyInclude.length > 0,

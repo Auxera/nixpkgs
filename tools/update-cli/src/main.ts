@@ -98,11 +98,14 @@ async function getLatestPackageVersion(
   sourceInfo: { owner: string; repo: string },
 ): Promise<string | null> {
   if (!sourceInfo.owner || !sourceInfo.repo) {
+    console.log(`[discover] ${name}: skipping, no sourceInfo (owner=${sourceInfo.owner}, repo=${sourceInfo.repo})`);
     return null;
   }
 
   const tag = await fetchLatestReleaseTag(sourceInfo.owner, sourceInfo.repo);
-  return tag.startsWith("v") ? tag.slice(1) : tag;
+  const version = tag.startsWith("v") ? tag.slice(1) : tag;
+  console.log(`[discover] ${name}: GitHub latest tag=${tag}, parsed version=${version}`);
+  return version;
 }
 
 export async function runCli(argv: string[]): Promise<CliResult> {
@@ -222,7 +225,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     const branch = parseFlagValue(argv, "--branch");
     const currentVersion = parseFlagValue(argv, "--current-version");
     const newVersion = parseFlagValue(argv, "--new-version");
-    const hashRefresh = parseBoolFlag(argv, "--hash-refresh");
+    const hashRefresh = parseFlagValue(argv, "--hash-refresh") === "true";
     const artifactRoot = parseFlagValue(argv, "--artifact-root");
     const autoMerge = parseFlagValue(argv, "--auto-merge") === "true";
     const labels = parseSpaceSeparated(parseFlagValue(argv, "--labels"));

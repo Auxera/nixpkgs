@@ -131,17 +131,17 @@ export async function finalizePr(args: {
     }
   }
 
-  const title = args.hashRefresh
-    ? `${args.name}: hash refresh at ${args.currentVersion}`
-    : args.type === "package"
-      ? `${args.name}: ${args.currentVersion} -> ${args.newVersion}`
-      : `flake.lock: update all inputs`;
+  const title = args.type === "flake-input"
+    ? `flake.lock: update all inputs`
+    : args.hashRefresh
+      ? `${args.name}: hash refresh at ${args.currentVersion}`
+      : `${args.name}: ${args.currentVersion} -> ${args.newVersion}`;
 
-  const body = args.hashRefresh
-    ? `Automated hash refresh for ${args.name} at ${args.currentVersion}.`
-    : args.type === "package"
-      ? `Automated update for ${args.name} from ${args.currentVersion} to ${args.newVersion}.`
-      : `Automated flake input update.`;
+  const body = args.type === "flake-input"
+    ? `Automated flake input update.`
+    : args.hashRefresh
+      ? `Automated hash refresh for ${args.name} at ${args.currentVersion}.`
+      : `Automated update for ${args.name} from ${args.currentVersion} to ${args.newVersion}.`;
 
   const prNumber = await upsertPr({
     branch: args.branch,

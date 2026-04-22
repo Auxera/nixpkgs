@@ -191,7 +191,7 @@ jobs:
                     --branch "${{ matrix.branch }}" \
                     --current-version "${{ matrix.current_version }}" \
                     --new-version "${{ matrix.latest_version }}" \
-                    --hash-refresh ${{ github.event.inputs.hash-refresh == 'true' && 'true' || 'false' }} \
+                    --hash-refresh ${{ github.event.inputs.hash-refresh || 'false' }} \
                     --artifact-root .tmp/output-hashes \
                     --auto-merge "${{ github.event.inputs.auto-merge || 'true' }}" \
                     --labels "dependencies automated"
