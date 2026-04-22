@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { exec, checkedExec } from "../lib/exec";
 
@@ -61,6 +61,45 @@ async function clearOutputHashes(name: string, systems: string[]): Promise<void>
   }
 }
 
+async function regenerateBunNix(
+  name: string,
+  owner: string,
+  repo: string,
+  version: string,
+): Promise<void> {
+  const bunLockUrl = `https://raw.githubusercontent.com/${owner}/${repo}/v${version}/bun.lock`;
+  const tmpLockPath = join("pkgs", name, ".tmp-bun.lock");
+
+  const resp = await fetch(bunLockUrl);
+  if (!resp.ok) {
+    throw new Error(`failed to fetch bun.lock for ${owner}/${repo} v${version}: ${resp.status}`);
+  }
+  const bunLock = await resp.text();
+  await writeFile(tmpLockPath, bunLock, "utf8");
+
+  try {
+    await checkedExec([
+      "nix",
+      "run",
+      ".#bun2nix",
+      "--",
+      "-l",
+      tmpLockPath,
+      "-o",
+      join("pkgs", name, "bun.nix"),
+    ]);
+    await checkedExec([
+      "nix",
+      "run",
+      "nixpkgs#alejandra",
+      "--",
+      join("pkgs", name, "bun.nix"),
+    ]);
+  } finally {
+    await unlink(tmpLockPath).catch(() => {});
+  }
+}
+
 export async function applyUpdate(args: {
   type: "package" | "flake-input";
   name: string;
@@ -70,6 +109,7 @@ export async function applyUpdate(args: {
   owner: string;
   repo: string;
   systemsNeedingOutputHash: string[];
+  hasBunNix: boolean;
 }): Promise<{
   updated: boolean;
   newVersion: string;
@@ -95,6 +135,9 @@ export async function applyUpdate(args: {
   const newVersion = args.hashRefresh ? args.currentVersion : args.latestVersion;
 
   await updateSourceJson(args.name, newVersion, args.owner, args.repo);
+  if (args.hasBunNix) {
+    await regenerateBunNix(args.name, args.owner, args.repo, newVersion);
+  }
   await clearOutputHashes(args.name, args.systemsNeedingOutputHash);
 
   const branch = `update/${args.name}`;

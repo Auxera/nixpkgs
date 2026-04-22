@@ -91,6 +91,7 @@ jobs:
                     --owner "${{ matrix.owner }}" \
                     --repo "${{ matrix.repo }}" \
                     --systems-needing-output-hash "${{ matrix.systems_needing_output_hash }}" \
+                    --has-bun-nix "${{ matrix.has_bun_nix }}" \
                     ${{ github.event.inputs.hash-refresh == 'true' && '--hash-refresh' || '' }}
 
             - id: apply-flake

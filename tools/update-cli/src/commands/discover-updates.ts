@@ -6,6 +6,7 @@ export type PackageMeta = {
   sourceInfo: { owner: string; repo: string };
   platforms: string[];
   needsOutputHash: boolean;
+  hasBunNix: boolean;
 };
 
 export type ApplyEntry = {
@@ -17,6 +18,7 @@ export type ApplyEntry = {
   repo: string;
   branch: string;
   systems_needing_output_hash: string[];
+  has_bun_nix: boolean;
 };
 
 export type HashEntry = {
@@ -69,6 +71,7 @@ export async function discoverUpdates(args: {
         repo: pkg.sourceInfo.repo,
         branch: `update/${pkg.name}`,
         systems_needing_output_hash: systemsNeedingHash,
+        has_bun_nix: pkg.hasBunNix,
       });
 
       for (const system of systemsNeedingHash) {
@@ -94,6 +97,7 @@ export async function discoverUpdates(args: {
         repo: pkg.sourceInfo.repo,
         branch: `update/${pkg.name}`,
         systems_needing_output_hash: systemsNeedingHash,
+        has_bun_nix: pkg.hasBunNix,
       });
 
       for (const system of systemsNeedingHash) {
@@ -117,6 +121,7 @@ export async function discoverUpdates(args: {
     repo: "",
     branch: "update/flake-inputs",
     systems_needing_output_hash: [],
+    has_bun_nix: false,
   });
 
   return {

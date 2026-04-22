@@ -8,6 +8,7 @@ const PACKAGES: PackageMeta[] = [
     sourceInfo: { owner: "anomalyco", repo: "opencode" },
     platforms: ["x86_64-linux", "aarch64-linux", "aarch64-darwin"],
     needsOutputHash: true,
+    hasBunNix: false,
   },
   {
     name: "superpowers-opencode-plugin",
@@ -15,6 +16,7 @@ const PACKAGES: PackageMeta[] = [
     sourceInfo: { owner: "obra", repo: "superpowers" },
     platforms: ["x86_64-linux", "aarch64-linux", "aarch64-darwin"],
     needsOutputHash: false,
+    hasBunNix: false,
   },
 ];
 

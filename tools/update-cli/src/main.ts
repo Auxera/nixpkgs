@@ -54,7 +54,7 @@ function parseSpaceSeparated(value: string): string[] {
 async function getPackageMetadata(): Promise<PackageMeta[]> {
   const supportedSystems = ["x86_64-linux", "aarch64-linux", "aarch64-darwin"];
   const nixList = supportedSystems.map((s) => `"${s}"`).join(" ");
-  const expr = `pkgs: builtins.map (name: let p = pkgs.\${name}; passthru = p.passthru or {}; si = passthru.sourceInfo or {}; supportedSystems = [${nixList}]; meta = p.meta or {}; rawPlatforms = builtins.map (plat: plat.system or plat) (if builtins.isList meta.platforms then meta.platforms else []); platforms = builtins.filter (s: builtins.elem s supportedSystems) rawPlatforms; in { name = name; version = p.version; sourceInfo = si; platforms = if platforms != [] then platforms else supportedSystems; needsOutputHash = passthru.needsOutputHash or false; }) (builtins.attrNames pkgs)`;
+  const expr = `pkgs: builtins.map (name: let p = pkgs.\${name}; passthru = p.passthru or {}; si = passthru.sourceInfo or {}; supportedSystems = [${nixList}]; meta = p.meta or {}; rawPlatforms = builtins.map (plat: plat.system or plat) (if builtins.isList meta.platforms then meta.platforms else []); platforms = builtins.filter (s: builtins.elem s supportedSystems) rawPlatforms; in { name = name; version = p.version; sourceInfo = si; platforms = if platforms != [] then platforms else supportedSystems; needsOutputHash = passthru.needsOutputHash or false; hasBunNix = passthru.hasBunNix or false; }) (builtins.attrNames pkgs)`;
 
   const evalResult = await exec([
     "nix",
@@ -75,6 +75,7 @@ async function getPackageMetadata(): Promise<PackageMeta[]> {
     sourceInfo: { owner?: string; repo?: string };
     platforms: string[];
     needsOutputHash: boolean;
+    hasBunNix: boolean;
   }>;
 
   return raw
@@ -88,6 +89,7 @@ async function getPackageMetadata(): Promise<PackageMeta[]> {
       },
       platforms: pkg.platforms,
       needsOutputHash: pkg.needsOutputHash,
+      hasBunNix: pkg.hasBunNix,
     }));
 }
 
@@ -175,6 +177,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     const systemsNeedingOutputHash = parseSpaceSeparated(
       parseFlagValue(argv, "--systems-needing-output-hash"),
     );
+    const hasBunNix = parseFlagValue(argv, "--has-bun-nix") === "true";
 
     const result = await applyUpdate({
       type,
@@ -185,6 +188,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
       owner,
       repo,
       systemsNeedingOutputHash,
+      hasBunNix,
     });
 
     writeGithubOutput("updated", result.updated ? "true" : "false");

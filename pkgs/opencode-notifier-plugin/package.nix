@@ -67,4 +67,5 @@ in
     };
 
     passthru.sourceInfo = sourceInfo;
+    passthru.hasBunNix = true;
   }
