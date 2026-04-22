@@ -46,38 +46,65 @@ export async function discoverUpdates(args: {
       continue;
     }
 
-    const latest = await args.getLatestVersion(pkg.name);
-    if (!latest) {
-      continue;
-    }
+    if (!args.hashRefresh) {
+      const latest = await args.getLatestVersion(pkg.name);
+      if (!latest) {
+        continue;
+      }
 
-    if (!args.hashRefresh && pkg.version === latest) {
-      continue;
-    }
+      if (pkg.version === latest) {
+        continue;
+      }
 
-    const systemsNeedingHash = pkg.needsOutputHash
-      ? PLATFORMS.filter((p) => pkg.platforms.includes(p.system)).map((p) => p.system)
-      : [];
+      const systemsNeedingHash = pkg.needsOutputHash
+        ? PLATFORMS.filter((p) => pkg.platforms.includes(p.system)).map((p) => p.system)
+        : [];
 
-    applyInclude.push({
-      type: "package",
-      name: pkg.name,
-      current_version: pkg.version,
-      latest_version: args.hashRefresh ? pkg.version : latest,
-      owner: pkg.sourceInfo.owner,
-      repo: pkg.sourceInfo.repo,
-      branch: `update/${pkg.name}`,
-      systems_needing_output_hash: systemsNeedingHash,
-    });
-
-    for (const system of systemsNeedingHash) {
-      const platform = PLATFORMS.find((p) => p.system === system);
-      hashInclude.push({
+      applyInclude.push({
+        type: "package",
         name: pkg.name,
-        system,
-        runs_on: platform ? RUNNER_BY_SYSTEM[platform.system] : "ubuntu-latest",
+        current_version: pkg.version,
+        latest_version: latest,
+        owner: pkg.sourceInfo.owner,
+        repo: pkg.sourceInfo.repo,
         branch: `update/${pkg.name}`,
+        systems_needing_output_hash: systemsNeedingHash,
       });
+
+      for (const system of systemsNeedingHash) {
+        const platform = PLATFORMS.find((p) => p.system === system);
+        hashInclude.push({
+          name: pkg.name,
+          system,
+          runs_on: platform ? RUNNER_BY_SYSTEM[platform.system] : "ubuntu-latest",
+          branch: `update/${pkg.name}`,
+        });
+      }
+    } else {
+      const systemsNeedingHash = pkg.needsOutputHash
+        ? PLATFORMS.filter((p) => pkg.platforms.includes(p.system)).map((p) => p.system)
+        : [];
+
+      applyInclude.push({
+        type: "package",
+        name: pkg.name,
+        current_version: pkg.version,
+        latest_version: pkg.version,
+        owner: pkg.sourceInfo.owner,
+        repo: pkg.sourceInfo.repo,
+        branch: `update/${pkg.name}`,
+        systems_needing_output_hash: systemsNeedingHash,
+      });
+
+      for (const system of systemsNeedingHash) {
+        const platform = PLATFORMS.find((p) => p.system === system);
+        hashInclude.push({
+          name: pkg.name,
+          system,
+          runs_on: platform ? RUNNER_BY_SYSTEM[platform.system] : "ubuntu-latest",
+          branch: `update/${pkg.name}`,
+        });
+      }
     }
   }
 
