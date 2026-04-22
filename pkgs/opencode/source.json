@@ -1,8 +1,8 @@
 {
-  "version": "1.14.19",
+  "version": "1.14.20",
   "hash": {
-    "x86_64-linux": "sha256-kKFqMf+l+V1kaf6bZtKfUSRYYjKc3VNgxlxic2fM2fo=",
-    "aarch64-linux": "sha256-kKFqMf+l+V1kaf6bZtKfUSRYYjKc3VNgxlxic2fM2fo=",
-    "aarch64-darwin": "sha256-kKFqMf+l+V1kaf6bZtKfUSRYYjKc3VNgxlxic2fM2fo="
+    "x86_64-linux": "0r2pw4w222v59jwmyhxxx8jnmb22k8akmnn5db66sk8y56y72z7n",
+    "aarch64-linux": "0r2pw4w222v59jwmyhxxx8jnmb22k8akmnn5db66sk8y56y72z7n",
+    "aarch64-darwin": "0r2pw4w222v59jwmyhxxx8jnmb22k8akmnn5db66sk8y56y72z7n"
   }
 }
