@@ -112,17 +112,19 @@ export async function discoverUpdates(args: {
     }
   }
 
-  applyInclude.push({
-    type: "flake-input",
-    name: "flake-inputs",
-    current_version: "unknown",
-    latest_version: "unknown",
-    owner: "",
-    repo: "",
-    branch: "update/flake-inputs",
-    systems_needing_output_hash: [],
-    has_bun_nix: false,
-  });
+  if (!args.hashRefresh) {
+    applyInclude.push({
+      type: "flake-input",
+      name: "flake-inputs",
+      current_version: "unknown",
+      latest_version: "unknown",
+      owner: "",
+      repo: "",
+      branch: "update/flake-inputs",
+      systems_needing_output_hash: [],
+      has_bun_nix: false,
+    });
+  }
 
   return {
     hasUpdates: applyInclude.length > 0,

@@ -70,19 +70,21 @@ async function enableAutoMerge(prNumber: number, enabled: boolean): Promise<void
 async function collectHashFiles(artifactRoot: string, pkgName: string): Promise<Map<string, string>> {
   const hashes = new Map<string, string>();
 
-  const pkgArtifactDir = join(artifactRoot, `output-hash-${pkgName}`);
   try {
-    const entries = await readdir(pkgArtifactDir, { withFileTypes: true });
+    const entries = await readdir(artifactRoot, { withFileTypes: true });
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const hashFile = join(pkgArtifactDir, entry.name, "pkgs", pkgName, "output-hashes");
+      if (!entry.isDirectory() || !entry.name.startsWith(`output-hash-${pkgName}-`)) continue;
+      const artifactDir = join(artifactRoot, entry.name);
+      const hashDir = join(artifactDir, "pkgs", pkgName, "output-hashes");
       try {
-        const systemFiles = await readdir(hashFile, { withFileTypes: true });
+        const systemFiles = await readdir(hashDir, { withFileTypes: true });
         for (const sf of systemFiles) {
           if (sf.isFile() && sf.name.endsWith(".txt")) {
             const system = sf.name.replace(".txt", "");
-            const content = await readFile(join(hashFile, sf.name), "utf8");
-            hashes.set(system, content.trim());
+            const content = await readFile(join(hashDir, sf.name), "utf8");
+            if (content.trim().length > 0) {
+              hashes.set(system, content.trim());
+            }
           }
         }
       } catch {
@@ -90,7 +92,7 @@ async function collectHashFiles(artifactRoot: string, pkgName: string): Promise<
       }
     }
   } catch {
-    // no artifact dir for this package
+    // artifact root doesn't exist
   }
 
   return hashes;
@@ -102,11 +104,15 @@ export async function finalizePr(args: {
   branch: string;
   currentVersion: string;
   newVersion: string;
+  hashRefresh: boolean;
   artifactRoot: string;
   autoMerge: boolean;
   labels: string[];
 }): Promise<number> {
-  await checkedExec(["git", "fetch", "origin", args.branch]);
+  const fetchResult = await exec(["git", "fetch", "origin", args.branch]);
+  if (fetchResult.exitCode !== 0) {
+    return 0;
+  }
   await checkedExec(["git", "checkout", args.branch]);
 
   if (args.type === "package") {
@@ -125,13 +131,15 @@ export async function finalizePr(args: {
     }
   }
 
-  const title =
-    args.type === "package"
+  const title = args.hashRefresh
+    ? `${args.name}: hash refresh at ${args.currentVersion}`
+    : args.type === "package"
       ? `${args.name}: ${args.currentVersion} -> ${args.newVersion}`
       : `flake.lock: update all inputs`;
 
-  const body =
-    args.type === "package"
+  const body = args.hashRefresh
+    ? `Automated hash refresh for ${args.name} at ${args.currentVersion}.`
+    : args.type === "package"
       ? `Automated update for ${args.name} from ${args.currentVersion} to ${args.newVersion}.`
       : `Automated flake input update.`;
 

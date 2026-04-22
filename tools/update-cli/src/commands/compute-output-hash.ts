@@ -11,7 +11,10 @@ export async function computeOutputHash(args: {
   hash: string | null;
   artifactName: string;
 }> {
-  await checkedExec(["git", "fetch", "origin", args.branch]);
+  const fetchResult = await exec(["git", "fetch", "origin", args.branch]);
+  if (fetchResult.exitCode !== 0) {
+    return { hash: null, artifactName: `output-hash-${args.name}-${args.system}` };
+  }
   await checkedExec(["git", "checkout", args.branch]);
 
   const buildResult = await exec([
@@ -20,6 +23,28 @@ export async function computeOutputHash(args: {
     "--print-build-logs",
     `.#packages.${args.system}.${args.name}`,
   ]);
+
+  if (buildResult.exitCode === 0) {
+    const hashPath = join("pkgs", args.name, "output-hashes", `${args.system}.txt`);
+    const { readFile: readFileFs, writeFile, mkdir } = await import("node:fs/promises");
+    const { dirname } = await import("node:path");
+    await mkdir(dirname(hashPath), { recursive: true });
+    try {
+      const existing = await readFileFs(hashPath, "utf8");
+      if (existing.trim().length > 0) {
+        const artifactName = `output-hash-${args.name}-${args.system}`;
+        writeGithubOutput("hash", existing.trim());
+        writeGithubOutput("artifact_name", artifactName);
+        return { hash: existing.trim(), artifactName };
+      }
+    } catch {
+      // file doesn't exist yet
+    }
+    const artifactName = `output-hash-${args.name}-${args.system}`;
+    writeGithubOutput("hash", "");
+    writeGithubOutput("artifact_name", artifactName);
+    return { hash: null, artifactName };
+  }
 
   const hash = parseOutputHashFromBuildLog(buildResult.stderr);
 

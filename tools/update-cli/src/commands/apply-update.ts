@@ -133,6 +133,9 @@ export async function applyUpdate(args: {
   }
 
   const newVersion = args.hashRefresh ? args.currentVersion : args.latestVersion;
+  const commitMessage = args.hashRefresh
+    ? `${args.name}: hash refresh at ${args.currentVersion}`
+    : `${args.name}: ${args.currentVersion} -> ${newVersion}`;
 
   await updateSourceJson(args.name, newVersion, args.owner, args.repo);
   if (args.hasBunNix) {
@@ -140,10 +143,15 @@ export async function applyUpdate(args: {
   }
   await clearOutputHashes(args.name, args.systemsNeedingOutputHash);
 
+  const diffResult = await exec(["git", "diff", "--quiet", "--", `pkgs/${args.name}`]);
+  if (diffResult.exitCode === 0) {
+    return { updated: false, newVersion, branch: "" };
+  }
+
   const branch = `update/${args.name}`;
   await checkedExec(["git", "checkout", "-b", branch]);
   await checkedExec(["git", "add", `pkgs/${args.name}`]);
-  await checkedExec(["git", "commit", "-m", `${args.name}: ${args.currentVersion} -> ${newVersion}`]);
+  await checkedExec(["git", "commit", "-m", commitMessage]);
   await checkedExec(["git", "push", "--force", "origin", branch]);
 
   return { updated: true, newVersion, branch };

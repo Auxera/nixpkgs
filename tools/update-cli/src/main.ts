@@ -222,6 +222,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     const branch = parseFlagValue(argv, "--branch");
     const currentVersion = parseFlagValue(argv, "--current-version");
     const newVersion = parseFlagValue(argv, "--new-version");
+    const hashRefresh = parseBoolFlag(argv, "--hash-refresh");
     const artifactRoot = parseFlagValue(argv, "--artifact-root");
     const autoMerge = parseFlagValue(argv, "--auto-merge") === "true";
     const labels = parseSpaceSeparated(parseFlagValue(argv, "--labels"));
@@ -232,6 +233,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
       branch,
       currentVersion,
       newVersion,
+      hashRefresh,
       artifactRoot,
       autoMerge,
       labels: labels.length > 0 ? labels : ["dependencies", "automated"],
