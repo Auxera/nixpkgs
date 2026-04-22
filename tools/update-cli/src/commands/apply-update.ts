@@ -80,9 +80,9 @@ async function regenerateBunNix(
   try {
     await checkedExec([
       "nix",
-      "run",
-      ".#bun2nix",
-      "--",
+      "develop",
+      "-c",
+      "bun2nix",
       "-l",
       tmpLockPath,
       "-o",

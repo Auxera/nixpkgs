@@ -64,10 +64,12 @@
         '';
 
         devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            alejandra
-            git
-          ];
+          packages = with pkgs;
+            [
+              alejandra
+              git
+            ]
+            ++ [bun2nix.packages.${system}.bun2nix];
         };
       }
     );
