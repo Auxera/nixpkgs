@@ -53,7 +53,8 @@ function parseSpaceSeparated(value: string): string[] {
 
 async function getPackageMetadata(): Promise<PackageMeta[]> {
   const supportedSystems = ["x86_64-linux", "aarch64-linux", "aarch64-darwin"];
-  const expr = `pkgs: builtins.map (name: let p = pkgs.\${name}; passthru = p.passthru or {}; si = passthru.sourceInfo or {}; supportedSystems = ${JSON.stringify(supportedSystems)}; meta = p.meta or {}; rawPlatforms = builtins.map (plat: plat.system or plat) (if builtins.isList meta.platforms then meta.platforms else []); platforms = builtins.filter (s: builtins.elem s supportedSystems) rawPlatforms; in { name = name; version = p.version; sourceInfo = si; platforms = if platforms != [] then platforms else supportedSystems; needsOutputHash = passthru.needsOutputHash or false; }) (builtins.attrNames pkgs)`;
+  const nixList = supportedSystems.map((s) => `"${s}"`).join(" ");
+  const expr = `pkgs: builtins.map (name: let p = pkgs.\${name}; passthru = p.passthru or {}; si = passthru.sourceInfo or {}; supportedSystems = [${nixList}]; meta = p.meta or {}; rawPlatforms = builtins.map (plat: plat.system or plat) (if builtins.isList meta.platforms then meta.platforms else []); platforms = builtins.filter (s: builtins.elem s supportedSystems) rawPlatforms; in { name = name; version = p.version; sourceInfo = si; platforms = if platforms != [] then platforms else supportedSystems; needsOutputHash = passthru.needsOutputHash or false; }) (builtins.attrNames pkgs)`;
 
   const evalResult = await exec([
     "nix",
