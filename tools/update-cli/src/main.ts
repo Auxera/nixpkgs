@@ -40,14 +40,11 @@ function parseFlagValue(argv: string[], flag: string): string {
   return argv[index + 1] ?? "";
 }
 
-function parseBoolFlag(argv: string[], flag: string): boolean {
-  return argv.includes(flag);
-}
-
 function parseSpaceSeparated(value: string): string[] {
   return value
     .split(" ")
     .map((item) => item.trim())
+    .map((item) => item.replace(/^["']|["']$/g, ""))
     .filter((item) => item.length > 0);
 }
 
@@ -139,7 +136,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
 
   if (command === "discover-updates") {
     const selectedPackages = parseSpaceSeparated(parseFlagValue(argv, "--packages"));
-    const hashRefresh = parseBoolFlag(argv, "--hash-refresh");
+    const hashRefresh = parseFlagValue(argv, "--hash-refresh") === "true";
     const packages = await getPackageMetadata();
 
     const result = await discoverUpdates({
@@ -174,7 +171,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     const name = parseFlagValue(argv, "--name");
     const currentVersion = parseFlagValue(argv, "--current-version");
     const latestVersion = parseFlagValue(argv, "--latest-version");
-    const hashRefresh = parseBoolFlag(argv, "--hash-refresh");
+    const hashRefresh = parseFlagValue(argv, "--hash-refresh") === "true";
     const owner = parseFlagValue(argv, "--owner");
     const repo = parseFlagValue(argv, "--repo");
     const systemsNeedingOutputHash = parseSpaceSeparated(

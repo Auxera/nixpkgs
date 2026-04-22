@@ -40,7 +40,10 @@ jobs:
                   PACKAGES: ${{ github.event.inputs.packages || '' }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  ARGS="discover-updates --packages \"$PACKAGES\""
+                  ARGS="discover-updates"
+                  if [ -n "$PACKAGES" ]; then
+                    ARGS="$ARGS --packages $PACKAGES"
+                  fi
                   if [ "${{ github.event.inputs.hash-refresh }}" = "true" ]; then
                     ARGS="$ARGS --hash-refresh"
                   fi
