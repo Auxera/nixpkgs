@@ -9,10 +9,11 @@ on:
                 description: "Space-separated package names (empty means all)"
                 required: false
                 default: ""
-            inputs:
-                description: "Space-separated flake input names (empty means all)"
+            hash-refresh:
+                description: "Recompute hashes at current version without bumping"
                 required: false
-                default: ""
+                default: "false"
+                type: boolean
             auto-merge:
                 description: "Enable PR auto-merge"
                 required: false
@@ -26,7 +27,8 @@ jobs:
     discover:
         runs-on: ubuntu-latest
         outputs:
-            matrix: ${{ steps.discover.outputs.matrix }}
+            apply_matrix: ${{ steps.discover.outputs.apply_matrix }}
+            hash_matrix: ${{ steps.discover.outputs.hash_matrix }}
             has-updates: ${{ steps.discover.outputs.has-updates }}
         steps:
             - uses: actions/checkout@v6
@@ -36,16 +38,21 @@ jobs:
             - id: discover
               env:
                   PACKAGES: ${{ github.event.inputs.packages || '' }}
-                  INPUTS: ${{ github.event.inputs.inputs || '' }}
-              run: nix run nixpkgs#bun -- tools/update-cli/src/main.ts discover-updates --packages "$PACKAGES" --inputs "$INPUTS"
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  ARGS="discover-updates --packages \"$PACKAGES\""
+                  if [ "${{ github.event.inputs.hash-refresh }}" = "true" ]; then
+                    ARGS="$ARGS --hash-refresh"
+                  fi
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts $ARGS
 
-    update:
+    apply:
         needs: discover
         if: needs.discover.outputs.has-updates == 'true'
-        runs-on: ${{ matrix.runs_on }}
+        runs-on: ubuntu-latest
         strategy:
             fail-fast: false
-            matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+            matrix: ${{ fromJson(needs.discover.outputs.apply_matrix) }}
         steps:
             - uses: actions/checkout@v6
 
@@ -57,36 +64,86 @@ jobs:
                   authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
             - id: apply
+              if: matrix.type == 'package'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   nix run nixpkgs#bun -- tools/update-cli/src/main.ts apply-update \
                     --type "${{ matrix.type }}" \
                     --name "${{ matrix.name }}" \
-                    --system "${{ matrix.system }}" \
                     --current-version "${{ matrix.current_version }}" \
-                    --is-primary "${{ matrix.is_primary || 'false' }}"
+                    --latest-version "${{ matrix.latest_version }}" \
+                    --owner "${{ matrix.owner }}" \
+                    --repo "${{ matrix.repo }}" \
+                    --systems-needing-output-hash "${{ matrix.systems_needing_output_hash }}" \
+                    ${{ github.event.inputs.hash-refresh == 'true' && '--hash-refresh' || '' }}
 
-            - uses: actions/upload-artifact@v4
-              if: steps.apply.outputs.updated == 'true'
-              with:
-                  name: ${{ steps.apply.outputs.artifact_name }}
-                  path: ${{ steps.apply.outputs.artifact_dir }}
-                  if-no-files-found: error
+            - id: apply-flake
+              if: matrix.type == 'flake-input'
+              run: |
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts apply-update \
+                    --type "${{ matrix.type }}" \
+                    --name "${{ matrix.name }}" \
+                    --current-version "${{ matrix.current_version }}" \
+                    --latest-version "${{ matrix.latest_version }}"
 
-    compose-prs:
-        needs:
-            - discover
-            - update
-        if: needs.discover.outputs.has-updates == 'true' && needs.update.result == 'success'
-        runs-on: ubuntu-latest
+    compute-output-hash:
+        needs: apply
+        if: needs.discover.outputs.hash_matrix != '{"include":[]}'
+        runs-on: ${{ matrix.runs_on }}
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.discover.outputs.hash_matrix) }}
         steps:
             - uses: actions/checkout@v6
 
-            - uses: actions/download-artifact@v4
+            - uses: cachix/install-nix-action@v31
+
+            - uses: cachix/cachix-action@v17
               with:
-                  path: .tmp/update-artifacts
+                  name: auxera
+                  authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
             - run: |
-                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts compose-prs \
-                    --artifact-root .tmp/update-artifacts \
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts compute-output-hash \
+                    --name "${{ matrix.name }}" \
+                    --system "${{ matrix.system }}" \
+                    --branch "${{ matrix.branch }}"
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: output-hash-${{ matrix.name }}-${{ matrix.system }}
+                  path: pkgs/${{ matrix.name }}/output-hashes/${{ matrix.system }}.txt
+                  if-no-files-found: warn
+
+    finalize-pr:
+        needs:
+            - discover
+            - apply
+            - compute-output-hash
+        if: always() && needs.apply.result != 'skipped' && needs.apply.result != 'failure'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.discover.outputs.apply_matrix) }}
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: cachix/install-nix-action@v31
+
+            - uses: actions/download-artifact@v4
+              if: matrix.systems_needing_output_hash != ''
+              with:
+                  path: .tmp/output-hashes
+                  pattern: output-hash-${{ matrix.name }}-*
+
+            - run: |
+                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts finalize-pr \
+                    --type "${{ matrix.type }}" \
+                    --name "${{ matrix.name }}" \
+                    --branch "${{ matrix.branch }}" \
+                    --current-version "${{ matrix.current_version }}" \
+                    --new-version "${{ matrix.latest_version }}" \
+                    --artifact-root .tmp/output-hashes \
                     --auto-merge "${{ github.event.inputs.auto-merge || 'true' }}" \
                     --labels "dependencies automated"

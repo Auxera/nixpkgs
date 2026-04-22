@@ -1,10 +1,11 @@
-import { migrateHashes } from "./commands/migrate-hashes";
 import { writeGithubOutput } from "./lib/github-output";
 import { exec } from "./lib/exec";
 import { discoverBuildTargets } from "./commands/discover-build-targets";
-import { discoverUpdates } from "./commands/discover-updates";
+import { discoverUpdates, type PackageMeta } from "./commands/discover-updates";
 import { applyUpdate } from "./commands/apply-update";
-import { composePrs } from "./commands/compose-prs";
+import { computeOutputHash } from "./commands/compute-output-hash";
+import { finalizePr } from "./commands/finalize-pr";
+import { fetchLatestReleaseTag } from "./upstream/github-release";
 
 export type CliResult = {
   exitCode: number;
@@ -13,21 +14,21 @@ export type CliResult = {
 };
 
 const COMMANDS = new Set([
-  "migrate-hashes",
   "discover-build-targets",
   "discover-updates",
   "apply-update",
-  "compose-prs",
+  "compute-output-hash",
+  "finalize-pr",
 ]);
 
 function usage(): string {
   return [
     "Usage:",
-    "  bun tools/update-cli/src/main.ts migrate-hashes",
     "  bun tools/update-cli/src/main.ts discover-build-targets",
     "  bun tools/update-cli/src/main.ts discover-updates",
     "  bun tools/update-cli/src/main.ts apply-update",
-    "  bun tools/update-cli/src/main.ts compose-prs",
+    "  bun tools/update-cli/src/main.ts compute-output-hash",
+    "  bun tools/update-cli/src/main.ts finalize-pr",
   ].join("\n");
 }
 
@@ -39,6 +40,10 @@ function parseFlagValue(argv: string[], flag: string): string {
   return argv[index + 1] ?? "";
 }
 
+function parseBoolFlag(argv: string[], flag: string): boolean {
+  return argv.includes(flag);
+}
+
 function parseSpaceSeparated(value: string): string[] {
   return value
     .split(" ")
@@ -46,56 +51,55 @@ function parseSpaceSeparated(value: string): string[] {
     .filter((item) => item.length > 0);
 }
 
-async function getPackageNamesFromNix(): Promise<string[]> {
+async function getPackageMetadata(): Promise<PackageMeta[]> {
+  const supportedSystems = ["x86_64-linux", "aarch64-linux", "aarch64-darwin"];
+  const expr = `pkgs: builtins.map (name: let p = pkgs.\${name}; passthru = p.passthru or {}; si = passthru.sourceInfo or {}; supportedSystems = ${JSON.stringify(supportedSystems)}; meta = p.meta or {}; rawPlatforms = builtins.map (plat: plat.system or plat) (if builtins.isList meta.platforms then meta.platforms else []); platforms = builtins.filter (s: builtins.elem s supportedSystems) rawPlatforms; in { name = name; version = p.version; sourceInfo = si; platforms = if platforms != [] then platforms else supportedSystems; needsOutputHash = passthru.needsOutputHash or false; }) (builtins.attrNames pkgs)`;
+
   const evalResult = await exec([
     "nix",
     "eval",
     "--json",
     ".#packages.x86_64-linux",
     "--apply",
-    "pkgs: builtins.attrNames pkgs",
+    expr,
   ]);
 
   if (evalResult.exitCode !== 0) {
-    throw new Error("failed to read package list from nix");
+    throw new Error(`failed to read package metadata from nix: ${evalResult.stderr}`);
   }
 
-  const parsed = JSON.parse(evalResult.stdout) as string[];
-  return parsed.filter((name) => name !== "default");
+  const raw = JSON.parse(evalResult.stdout) as Array<{
+    name: string;
+    version: string;
+    sourceInfo: { owner?: string; repo?: string };
+    platforms: string[];
+    needsOutputHash: boolean;
+  }>;
+
+  return raw
+    .filter((pkg) => pkg.name !== "default")
+    .map((pkg) => ({
+      name: pkg.name,
+      version: pkg.version,
+      sourceInfo: {
+        owner: pkg.sourceInfo.owner ?? "",
+        repo: pkg.sourceInfo.repo ?? "",
+      },
+      platforms: pkg.platforms,
+      needsOutputHash: pkg.needsOutputHash,
+    }));
 }
 
-async function getPackageVersionFromNix(name: string): Promise<string> {
-  const evalResult = await exec([
-    "nix",
-    "eval",
-    "--raw",
-    `.#packages.x86_64-linux.${name}.version`,
-  ]);
-
-  if (evalResult.exitCode !== 0) {
-    throw new Error(`failed to read version for ${name}`);
+async function getLatestPackageVersion(
+  name: string,
+  sourceInfo: { owner: string; repo: string },
+): Promise<string | null> {
+  if (!sourceInfo.owner || !sourceInfo.repo) {
+    return null;
   }
 
-  return evalResult.stdout.trim();
-}
-
-async function listFlakeInputs(): Promise<string[]> {
-  const evalResult = await exec([
-    "nix",
-    "eval",
-    "--impure",
-    "--json",
-    ".#",
-    "--apply",
-    "_: builtins.attrNames (builtins.fromJSON (builtins.readFile ./flake.lock)).nodes",
-  ]);
-
-  if (evalResult.exitCode !== 0) {
-    throw new Error("failed to read flake input names");
-  }
-
-  const parsed = JSON.parse(evalResult.stdout) as string[];
-  return parsed.filter((name) => name !== "root");
+  const tag = await fetchLatestReleaseTag(sourceInfo.owner, sourceInfo.repo);
+  return tag.startsWith("v") ? tag.slice(1) : tag;
 }
 
 export async function runCli(argv: string[]): Promise<CliResult> {
@@ -112,18 +116,9 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     };
   }
 
-  if (command === "migrate-hashes") {
-    await migrateHashes(process.cwd());
-    return {
-      exitCode: 0,
-      stdout: "migrated hashes files",
-      stderr: "",
-    };
-  }
-
   if (command === "discover-build-targets") {
     const changedFiles = parseSpaceSeparated(parseFlagValue(argv, "--changed-files"));
-    const packageNames = await getPackageNamesFromNix();
+    const packageNames = (await getPackageMetadata()).map((p) => p.name);
     const result = discoverBuildTargets({ changedFiles, packageNames });
     const matrix = JSON.stringify(result.matrix);
     const hasChanges = result.hasChanges ? "true" : "false";
@@ -138,25 +133,32 @@ export async function runCli(argv: string[]): Promise<CliResult> {
 
   if (command === "discover-updates") {
     const selectedPackages = parseSpaceSeparated(parseFlagValue(argv, "--packages"));
-    const selectedInputs = parseSpaceSeparated(parseFlagValue(argv, "--inputs"));
-    const packageNames = await getPackageNamesFromNix();
+    const hashRefresh = parseBoolFlag(argv, "--hash-refresh");
+    const packages = await getPackageMetadata();
 
     const result = await discoverUpdates({
       selectedPackages,
-      selectedInputs,
-      packageNames,
-      getCurrentVersion: getPackageVersionFromNix,
-      getLatestVersion: getPackageVersionFromNix,
-      listFlakeInputs,
+      hashRefresh,
+      packages,
+      getLatestVersion: (name) => {
+        const pkg = packages.find((p) => p.name === name);
+        return pkg ? getLatestPackageVersion(name, pkg.sourceInfo) : Promise.resolve(null);
+      },
     });
 
-    const matrix = JSON.stringify(result.matrix);
+    const applyMatrix = JSON.stringify(result.apply_matrix);
+    const hashMatrix = JSON.stringify(result.hash_matrix);
     const hasUpdates = result.hasUpdates ? "true" : "false";
-    writeGithubOutput("matrix", matrix);
+    writeGithubOutput("apply_matrix", applyMatrix);
+    writeGithubOutput("hash_matrix", hashMatrix);
     writeGithubOutput("has-updates", hasUpdates);
     return {
       exitCode: 0,
-      stdout: JSON.stringify({ matrix: result.matrix, hasUpdates: result.hasUpdates }),
+      stdout: JSON.stringify({
+        apply_matrix: result.apply_matrix,
+        hash_matrix: result.hash_matrix,
+        hasUpdates: result.hasUpdates,
+      }),
       stderr: "",
     };
   }
@@ -164,22 +166,29 @@ export async function runCli(argv: string[]): Promise<CliResult> {
   if (command === "apply-update") {
     const type = parseFlagValue(argv, "--type") as "package" | "flake-input";
     const name = parseFlagValue(argv, "--name");
-    const system = parseFlagValue(argv, "--system");
     const currentVersion = parseFlagValue(argv, "--current-version");
-    const isPrimary = parseFlagValue(argv, "--is-primary") === "true";
+    const latestVersion = parseFlagValue(argv, "--latest-version");
+    const hashRefresh = parseBoolFlag(argv, "--hash-refresh");
+    const owner = parseFlagValue(argv, "--owner");
+    const repo = parseFlagValue(argv, "--repo");
+    const systemsNeedingOutputHash = parseSpaceSeparated(
+      parseFlagValue(argv, "--systems-needing-output-hash"),
+    );
 
     const result = await applyUpdate({
       type,
       name,
-      system,
       currentVersion,
-      isPrimary,
+      latestVersion,
+      hashRefresh,
+      owner,
+      repo,
+      systemsNeedingOutputHash,
     });
 
     writeGithubOutput("updated", result.updated ? "true" : "false");
     writeGithubOutput("new_version", result.newVersion);
-    writeGithubOutput("artifact_name", result.artifactName);
-    writeGithubOutput("artifact_dir", result.artifactDir);
+    writeGithubOutput("branch", result.branch);
 
     return {
       exitCode: 0,
@@ -188,11 +197,36 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     };
   }
 
-  if (command === "compose-prs") {
+  if (command === "compute-output-hash") {
+    const name = parseFlagValue(argv, "--name");
+    const system = parseFlagValue(argv, "--system");
+    const branch = parseFlagValue(argv, "--branch");
+
+    const result = await computeOutputHash({ name, system, branch });
+
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify(result),
+      stderr: "",
+    };
+  }
+
+  if (command === "finalize-pr") {
+    const type = parseFlagValue(argv, "--type") as "package" | "flake-input";
+    const name = parseFlagValue(argv, "--name");
+    const branch = parseFlagValue(argv, "--branch");
+    const currentVersion = parseFlagValue(argv, "--current-version");
+    const newVersion = parseFlagValue(argv, "--new-version");
     const artifactRoot = parseFlagValue(argv, "--artifact-root");
     const autoMerge = parseFlagValue(argv, "--auto-merge") === "true";
     const labels = parseSpaceSeparated(parseFlagValue(argv, "--labels"));
-    const processed = await composePrs({
+
+    const prNumber = await finalizePr({
+      type,
+      name,
+      branch,
+      currentVersion,
+      newVersion,
       artifactRoot,
       autoMerge,
       labels: labels.length > 0 ? labels : ["dependencies", "automated"],
@@ -200,7 +234,7 @@ export async function runCli(argv: string[]): Promise<CliResult> {
 
     return {
       exitCode: 0,
-      stdout: JSON.stringify({ processed }),
+      stdout: JSON.stringify({ prNumber }),
       stderr: "",
     };
   }

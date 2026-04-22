@@ -16,14 +16,17 @@
     needsOutputHash = true;
   };
   inherit (versionData) version hash outputHash;
+  sourceInfo = {
+    owner = "anomalyco";
+    repo = "opencode";
+  };
 in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "opencode";
     inherit version;
 
     src = fetchFromGitHub {
-      owner = "anomalyco";
-      repo = "opencode";
+      inherit (sourceInfo) owner repo;
       rev = "v${version}";
       inherit hash;
     };
@@ -155,4 +158,7 @@ in
       ];
       mainProgram = "opencode";
     };
+
+    passthru.sourceInfo = sourceInfo;
+    passthru.needsOutputHash = true;
   })

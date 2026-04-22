@@ -10,14 +10,17 @@
     needsOutputHash = false;
   };
   inherit (versionData) version hash;
+  sourceInfo = {
+    owner = "obra";
+    repo = "superpowers";
+  };
 in
   stdenvNoCC.mkDerivation {
     pname = "superpowers-opencode-plugin";
     inherit version;
 
     src = fetchFromGitHub {
-      owner = "obra";
-      repo = "superpowers";
+      inherit (sourceInfo) owner repo;
       rev = "v${version}";
       inherit hash;
     };
@@ -38,4 +41,6 @@ in
       license = [lib.licenses.mit];
       platforms = lib.platforms.unix;
     };
+
+    passthru.sourceInfo = sourceInfo;
   }

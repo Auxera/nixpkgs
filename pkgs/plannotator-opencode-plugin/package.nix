@@ -12,14 +12,17 @@
     needsOutputHash = true;
   };
   inherit (versionData) version hash outputHash;
+  sourceInfo = {
+    owner = "backnotprop";
+    repo = "plannotator";
+  };
 in
   stdenvNoCC.mkDerivation {
     pname = "plannotator-opencode-plugin";
     inherit version;
 
     src = fetchFromGitHub {
-      owner = "backnotprop";
-      repo = "plannotator";
+      inherit (sourceInfo) owner repo;
       rev = "v${version}";
       inherit hash;
     };
@@ -97,4 +100,7 @@ in
       ];
       platforms = lib.platforms.unix;
     };
+
+    passthru.sourceInfo = sourceInfo;
+    passthru.needsOutputHash = true;
   }

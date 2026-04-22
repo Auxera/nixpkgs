@@ -12,14 +12,17 @@
     needsOutputHash = false;
   };
   inherit (versionData) version hash;
+  sourceInfo = {
+    owner = "mohak34";
+    repo = "opencode-notifier";
+  };
 in
   stdenvNoCC.mkDerivation {
     pname = "opencode-notifier-plugin";
     inherit version;
 
     src = fetchFromGitHub {
-      owner = "mohak34";
-      repo = "opencode-notifier";
+      inherit (sourceInfo) owner repo;
       rev = "v${version}";
       inherit hash;
     };
@@ -62,4 +65,6 @@ in
       license = [lib.licenses.mit];
       platforms = lib.platforms.unix;
     };
+
+    passthru.sourceInfo = sourceInfo;
   }

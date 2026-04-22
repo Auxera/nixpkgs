@@ -7,4 +7,10 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("Usage:");
   });
+
+  it("rejects unknown commands", async () => {
+    const result = await runCli(["migrate-hashes"]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("Unknown command");
+  });
 });
