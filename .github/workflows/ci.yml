@@ -34,7 +34,7 @@ jobs:
     needs:
       - fmt
       - flake-check
-    uses: ./.github/workflows/shared/discover.yml
+    uses: ./.github/workflows/discover.yml
     with:
       changed-only: true
 

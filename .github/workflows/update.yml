@@ -17,7 +17,7 @@ on:
 
 jobs:
   discover:
-    uses: ./.github/workflows/shared/discover.yml
+    uses: ./.github/workflows/discover.yml
 
   update-flake:
     needs: discover
@@ -26,7 +26,7 @@ jobs:
       matrix:
         input: ${{ fromJson('["' + needs.discover.outputs.flake-inputs + '"]') }}
     steps:
-      - uses: ./.github/workflows/shared/setup-bot.yml
+      - uses: ./.github/workflows/setup-bot.yml
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
@@ -46,7 +46,7 @@ jobs:
         run: |
           nix flake update ${{ matrix.input }}
 
-      - uses: ./.github/workflows/shared/commit-and-pr.yml
+      - uses: ./.github/workflows/commit-and-pr.yml
         with:
           branch: "update/${{ matrix.input }}"
           title: "flake.lock: update ${{ matrix.input }}"
@@ -60,7 +60,7 @@ jobs:
       matrix:
         package: ${{ fromJson('["' + needs.discover.outputs.packages + '"]') }}
     steps:
-      - uses: ./.github/workflows/shared/setup-bot.yml
+      - uses: ./.github/actions/setup-bot.yml
         id: bot-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -96,7 +96,7 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
-      - uses: ./.github/workflows/shared/commit-and-pr.yml
+      - uses: ./.github/workflows/commit-and-pr.yml
         if: steps.changes.outputs.has_changes == 'true'
         with:
           branch: "update/${{ matrix.package }}"
