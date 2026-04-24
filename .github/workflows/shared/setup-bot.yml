@@ -1,0 +1,21 @@
+name: Setup bot
+inputs:
+  app-id:
+    required: true
+  private-key:
+    required: true
+outputs:
+  token: ${{ steps.token.outputs.token }}
+  slug: ${{ steps.token.outputs.app-slug }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/create-github-app-token@v2
+      id: token
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - run: |
+        git config user.name "${{ steps.token.outputs.app-slug }}[bot]"
+        git config user.email "${{ steps.token.outputs.app-slug }}[bot]@users.noreply.github.com"

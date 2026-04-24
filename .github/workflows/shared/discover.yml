@@ -1,0 +1,76 @@
+name: Discover Flake
+
+on:
+  workflow_call:
+    inputs:
+      changed-only:
+        default: false
+        type: boolean
+    outputs:
+      packages:
+        value: ${{ jobs.discover.outputs.packages }}
+      flake-inputs:
+        value: ${{ jobs.discover.outputs.flake-inputs }}
+      package-matrix:
+        value: ${{ jobs.discover.outputs.package-matrix }}
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.discover-pkgs.outputs.packages }}
+      flake-inputs: ${{ steps.discover-flake.outputs.flake-inputs }}
+      package-matrix: ${{ steps.discover-package-matrix.outputs.package-matrix }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: cachix/install-nix-action@v31
+
+      - id: discover-pkgs
+        name: Discover packages
+        env:
+          CHANGED_ONLY: ${{ github.event.inputs.changed-only }}
+        run: |
+          if [[ "$CHANGED_ONLY" == "true" ]]; then
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+            PACKAGES=""
+            for dir in $(find ./pkgs -mindepth 1 -maxdepth 1 -type d -printf '%f\n'); do
+              if echo "$CHANGED_FILES" | grep -q "^$dir/"; then
+                PACKAGES="$PACKAGES,$dir"
+              fi
+            done
+            PACKAGES=${PACKAGES#,}
+          else
+            PACKAGES=$(find ./pkgs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | tr '\n' ',' | sed 's/,$//')
+          fi
+          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+
+      - id: discover-flake
+        name: Discover flake inputs
+        run: |
+          FLAKE_INPUTS=$(nix flake metadata --json | jq -r '.locks.nodes.root.inputs | keys | join(",")' || echo "")
+          echo "flake-inputs=$FLAKE_INPUTS" >> $GITHUB_OUTPUT
+
+      - id: discover-package-matrix
+        name: Discover package matrix
+        run: |
+          CHANGED_ONLY=${{ github.event.inputs.changed-only }}
+
+          FLAKE_EVAL=$(nix eval .#packages --json --quiet 2>/dev/null)
+          FULL_MATRIX=$(echo "$FLAKE_EVAL" | jq -c '[to_entries[] | .key as $platform | .value | to_entries[] | select(.key != "default") | {platform: $platform, package: .key}]')
+
+          if [[ "$CHANGED_ONLY" == "true" ]]; then
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+            CHANGED_PACKAGES=$(echo "$CHANGED_FILES" | grep -oE '^pkgs/[^/]+' | cut -d/ -f2 | sort -u | tr '\n' ',' | sed 's/,$//')
+
+            if [[ -z "$CHANGED_PACKAGES" ]]; then
+              MATRIX="[]"
+            else
+              CHANGED_PACKAGES_ARR=$(echo "$CHANGED_PACKAGES" | tr ',' '\n' | jq -R . | jq -s .)
+              MATRIX=$(echo "$FULL_MATRIX" | jq --argjson changed "$CHANGED_PACKAGES_ARR" '[.[] | select(.package | IN($changed[]))]')
+            fi
+          else
+            MATRIX="$FULL_MATRIX"
+          fi
+
+          echo "package-matrix=$MATRIX" >> $GITHUB_OUTPUT
