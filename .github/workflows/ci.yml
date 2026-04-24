@@ -44,7 +44,8 @@ jobs:
     if: needs.discover.outputs.package-matrix != '[]'
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.discover.outputs.package-matrix) }}
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.package-matrix || '[]') }}
     runs-on: ${{ matrix.system == 'aarch64-darwin' && 'macos-latest' || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v6
