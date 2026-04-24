@@ -23,6 +23,8 @@ jobs:
       package-matrix: ${{ steps.discover-package-matrix.outputs.package-matrix }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: cachix/install-nix-action@v31
 
