@@ -33,7 +33,7 @@ runs:
         fi
 
     - name: Commit and push
-      if: inputs.changes || steps.check-changes.outputs.has_changes
+      if: inputs.changes == 'true' || steps.check-changes.outputs.has_changes
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.bot-token }}
@@ -44,7 +44,7 @@ runs:
         git push -u origin ${{ inputs.branch }}
 
     - name: Create PR
-      if: inputs.changes || steps.check-changes.outputs.has_changes
+      if: inputs.changes == 'true' || steps.check-changes.outputs.has_changes
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.bot-token }}

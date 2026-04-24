@@ -46,11 +46,11 @@ jobs:
           nix flake update ${{ matrix.input }}
 
       - uses: ./.github/actions/commit-and-pr
+        name: Commit changes and create PR
         with:
           branch: "update/${{ matrix.input }}"
           title: "flake.lock: update ${{ matrix.input }}"
           body: 'Automated update of input "${{ matrix.input }}"'
-          changes: true
           bot-token: ${{ steps.bot-token.outputs.token }}
 
   update-package:
@@ -87,17 +87,9 @@ jobs:
             echo "EOF" >> $GITHUB_OUTPUT
           '
 
-      - id: changes
-        name: Check for changes
-        run: |
-          if git diff --quiet HEAD~1 -- "pkgs/${{ matrix.package }}"; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          fi
-
       - uses: ./.github/actions/commit-and-pr
-        if: steps.changes.outputs.has_changes == 'true'
+        name: Commit changes and create PR
+        if: steps.update.outputs.message-short != ''
         with:
           branch: "update/${{ matrix.package }}"
           title: ${{ steps.update.outputs.message-short }}
