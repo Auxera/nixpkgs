@@ -24,11 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        input: ${{ fromJson(needs.discover.outputs.flake-inputs) }}
+        input: ${{ fromJson(needs.discover.outputs.flake-inputs || '[]') }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          token: ${{ steps.bot-token.outputs.token }}
 
       - uses: ./.github/actions/setup-bot
         id: bot-token
@@ -60,11 +58,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: ${{ fromJson(needs.discover.outputs.packages) }}
+        package: ${{ fromJson(needs.discover.outputs.packages || '[]') }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          token: ${{ steps.bot-token.outputs.token }}
 
       - uses: ./.github/actions/setup-bot
         id: bot-token
@@ -84,7 +80,7 @@ jobs:
           nix develop -c bash -c '
             nix-update ${{ matrix.package }} --flake -u --write-commit-message="/tmp/full.txt"
             head -n1 /tmp/full.txt > /tmp/first.txt
-            echo "message_short=$(cat /tmp/first.txt)" >> $GITHUB_OUTPUT
+            echo "message-short=$(cat /tmp/first.txt)" >> $GITHUB_OUTPUT
             echo "message-long<<EOF" >> $GITHUB_OUTPUT
             cat /tmp/full.txt >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
@@ -104,4 +100,4 @@ jobs:
           branch: "update/${{ matrix.package }}"
           title: ${{ steps.update.outputs.message-short }}
           body: ${{ steps.update.outputs.message-long }}
-          token: ${{ steps.bot-token.outputs.token }}
+          bot-token: ${{ steps.bot-token.outputs.token }}
