@@ -1,8 +1,0 @@
-{
-  "version": "0.18.0",
-  "hash": {
-    "x86_64-linux": "sha256-FOjR+Z58GrKjzDLKdF7EicWGHwF5Yo+pZWuwoyHvfZ4=",
-    "aarch64-linux": "sha256-FOjR+Z58GrKjzDLKdF7EicWGHwF5Yo+pZWuwoyHvfZ4=",
-    "aarch64-darwin": "sha256-FOjR+Z58GrKjzDLKdF7EicWGHwF5Yo+pZWuwoyHvfZ4="
-  }
-}
