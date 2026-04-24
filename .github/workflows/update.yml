@@ -45,7 +45,7 @@ jobs:
         run: |
           nix flake update ${{ matrix.input }}
 
-      - uses: ./.github/workflows/commit-and-pr.yml
+      - uses: ./.github/actions/commit-and-pr
         with:
           branch: "update/${{ matrix.input }}"
           title: "flake.lock: update ${{ matrix.input }}"
@@ -76,6 +76,7 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - id: update
+        name: Perform update with nix-update
         run: |
           nix develop -c bash -c '
             nix-update ${{ matrix.package }} --flake -u --write-commit-message="/tmp/full.txt"
@@ -87,6 +88,7 @@ jobs:
           '
 
       - id: changes
+        name: Check for changes
         run: |
           if git diff --quiet HEAD~1 -- "pkgs/${{ matrix.package }}"; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -94,7 +96,7 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
-      - uses: ./.github/workflows/commit-and-pr.yml
+      - uses: ./.github/actions/commit-and-pr
         if: steps.changes.outputs.has_changes == 'true'
         with:
           branch: "update/${{ matrix.package }}"

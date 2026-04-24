@@ -1,0 +1,58 @@
+name: Commit changes and create a PR
+description: "Commit changes and create a PR"
+inputs:
+  branch:
+    description: "Branch name"
+    required: true
+  title:
+    description: "PR title"
+    required: true
+  body:
+    description: "PR body"
+    required: false
+    default: ""
+  changes:
+    description: "Whether there are changes"
+    required: false
+    default: "false"
+  auto-merge:
+    description: "Enable auto-merge"
+    required: false
+    default: "true"
+  bot-token:
+    description: "GitHub bot token"
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: check-changes
+      shell: bash
+      run: |
+        if git diff --stat | grep -q .; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Commit and push
+      if: inputs.changes || steps.check-changes.outputs.has_changes
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.bot-token }}
+      run: |
+        git checkout -b ${{ inputs.branch }}
+        git add .
+        git commit -m "${{ inputs.title }}"
+        git push -u origin ${{ inputs.branch }}
+
+    - name: Create PR
+      if: inputs.changes || steps.check-changes.outputs.has_changes
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.bot-token }}
+      run: |
+        gh pr create \
+          --base main \
+          --head ${{ inputs.branch }} \
+          --title "${{ inputs.title }}" \
+          --body "${{ inputs.body }}" \
+          --label "automated,dependencies" \
+          ${{ inputs.auto-merge == 'true' && '--auto-merge' || '' }}
