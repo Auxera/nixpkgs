@@ -51,6 +51,7 @@ jobs:
           branch: "update/${{ matrix.input }}"
           title: "flake.lock: update ${{ matrix.input }}"
           body: 'Automated update of input "${{ matrix.input }}"'
+          changes: true
 
   update-package:
     needs: discover
