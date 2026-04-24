@@ -79,7 +79,7 @@ jobs:
         name: Perform update with nix-update
         run: |
           nix develop -c bash -c '
-            nix-update ${{ matrix.package }} --flake -u --write-commit-message="/tmp/full.txt"
+            NIX_PATH=nixpkgs=. nix-update ${{ matrix.package }} --flake -u --write-commit-message="/tmp/full.txt"
             head -n1 /tmp/full.txt > /tmp/first.txt
             echo "message-short=$(cat /tmp/first.txt)" >> $GITHUB_OUTPUT
             echo "message-long<<EOF" >> $GITHUB_OUTPUT
