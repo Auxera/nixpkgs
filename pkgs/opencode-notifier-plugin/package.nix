@@ -1,71 +1,77 @@
 {
   lib,
   stdenvNoCC,
-  readPackageHashes,
   bun2nix,
   bun,
   fetchFromGitHub,
-}: let
-  versionData = readPackageHashes {
-    inherit lib stdenvNoCC;
-    packageDir = ./.;
-    needsOutputHash = false;
-  };
-  inherit (versionData) version hash;
-  sourceInfo = {
+  pkgs,
+  alejandra,
+}:
+stdenvNoCC.mkDerivation (finalAttrs: {
+  pname = "opencode-notifier-plugin";
+  version = "0.2.3";
+
+  src = fetchFromGitHub {
     owner = "mohak34";
     repo = "opencode-notifier";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-Pji4jbFewkhD88SilwJAWzmkA+z3/u54KXN74aXjtHk=";
   };
-in
-  stdenvNoCC.mkDerivation {
-    pname = "opencode-notifier-plugin";
-    inherit version;
 
-    src = fetchFromGitHub {
-      inherit (sourceInfo) owner repo;
-      rev = "v${version}";
-      inherit hash;
-    };
+  nativeBuildInputs = [
+    bun2nix.hook
+    bun
+  ];
 
-    nativeBuildInputs = [
-      bun2nix.hook
-      bun
-    ];
+  bunDeps = bun2nix.fetchBunDeps {
+    bunNix = ./bun.nix;
+  };
 
-    bunDeps = bun2nix.fetchBunDeps {
-      bunNix = ./bun.nix;
-    };
+  dontRunLifecycleScripts = true;
+  dontUseBunBuild = true;
+  dontUseBunInstall = true;
 
-    dontRunLifecycleScripts = true;
-    dontUseBunBuild = true;
-    dontUseBunInstall = true;
+  buildPhase = ''
+    runHook preBuild
 
-    buildPhase = ''
-      runHook preBuild
+    bun build src/index.ts --outfile dist/index.js --target bun --packages=bundle
 
-      bun build src/index.ts --outfile dist/index.js --target bun --packages=bundle
+    runHook postBuild
+  '';
 
-      runHook postBuild
-    '';
+  installPhase = ''
+    runHook preInstall
 
-    installPhase = ''
-      runHook preInstall
+    install -Dm644 dist/index.js "$out/plugins/opencode-notifier.js"
+    cp -r logos "$out/"
+    cp -r sounds "$out/"
 
-      install -Dm644 dist/index.js "$out/plugins/opencode-notifier.js"
-      cp -r logos "$out/"
-      cp -r sounds "$out/"
+    runHook postInstall
+  '';
 
-      runHook postInstall
-    '';
+  passthru.updateScript = pkgs.writeScript "update" ''
+    set -e
 
-    meta = {
-      description = "OpenCode notifier plugin built from source";
-      homepage = "https://github.com/mohak34/opencode-notifier";
-      changelog = "https://github.com/mohak34/opencode-notifier/releases/tag/v${version}";
-      license = [lib.licenses.mit];
-      platforms = lib.platforms.unix;
-    };
+    nix-update ${finalAttrs.pname} --flake
 
-    passthru.sourceInfo = sourceInfo;
-    passthru.hasBunNix = true;
-  }
+    tmpdir=$(mktemp -d)
+
+    NEW_VERSION=$(nix eval .#${finalAttrs.pname}.version --raw)
+
+    curl -sL "https://raw.githubusercontent.com/${finalAttrs.src.owner}/${finalAttrs.src.repo}/v$NEW_VERSION/bun.lock" -o "$tmpdir/bun.lock"
+
+    ${bun2nix}/bin/bun2nix -l $tmpdir/bun.lock -o ./pkgs/${finalAttrs.pname}/bun.nix
+
+    ${alejandra}/bin/alejandra ./pkgs/${finalAttrs.pname}/bun.nix
+
+    rm -rf "$tmpdir"
+  '';
+
+  meta = {
+    description = "OpenCode notifier plugin built from source";
+    homepage = "https://github.com/mohak34/opencode-notifier";
+    changelog = "https://github.com/mohak34/opencode-notifier/releases/tag/v${finalAttrs.version}";
+    license = [lib.licenses.mit];
+    platforms = lib.platforms.unix;
+  };
+})
