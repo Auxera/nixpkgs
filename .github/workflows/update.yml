@@ -24,9 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        input: ${{ fromJson('[needs.discover.outputs.flake-inputs]') }}
+        input: ${{ fromJson(needs.discover.outputs.flake-inputs) }}
     steps:
-      - uses: ./.github/workflows/setup-bot.yml
+      - uses: ./.github/actions/setup-bot
+        id: bot-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
@@ -52,15 +53,16 @@ jobs:
           title: "flake.lock: update ${{ matrix.input }}"
           body: 'Automated update of input "${{ matrix.input }}"'
           changes: true
+          bot-token: ${{ steps.bot-token.outputs.token }}
 
   update-package:
     needs: discover
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: ${{ fromJson('[needs.discover.outputs.packages]') }}
+        package: ${{ fromJson(needs.discover.outputs.packages) }}
     steps:
-      - uses: ./.github/actions/setup-bot.yml
+      - uses: ./.github/actions/setup-bot
         id: bot-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
@@ -102,3 +104,4 @@ jobs:
           branch: "update/${{ matrix.package }}"
           title: ${{ steps.update.outputs.message-short }}
           body: ${{ steps.update.outputs.message-long }}
+          token: ${{ steps.bot-token.outputs.token }}

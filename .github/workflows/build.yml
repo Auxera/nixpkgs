@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.discover.outputs.package-matrix) }}
-    runs-on: ${{ matrix.platform == 'aarch64-darwin' && 'macos-latest' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.system == 'aarch64-darwin' && 'macos-latest' || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v6
 

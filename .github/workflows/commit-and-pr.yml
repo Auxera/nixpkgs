@@ -20,6 +20,9 @@ on:
         required: false
         type: boolean
         default: true
+      bot-token:
+        required: true
+        type: string
 
 jobs:
   commit-and-pr:
@@ -42,12 +45,12 @@ jobs:
       - name: Create PR
         if: inputs.changes || steps.check-changes.outputs.has_changes
         env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          GH_TOKEN: ${{ inputs.bot-token }}
         run: |
           gh pr create \
             --base main \
             --head ${{ inputs.branch }} \
             --title "${{ inputs.title }}" \
             --body "${{ inputs.body }}" \
-            --label "automated,dependencies"
+            --label "automated,dependencies" \
             ${{ inputs.auto-merge == 'true' && '--auto-merge' || '' }}
