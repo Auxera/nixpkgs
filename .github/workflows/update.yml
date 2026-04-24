@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        input: ${{ fromJson('["' + needs.discover.outputs.flake-inputs + '"]') }}
+        input: ${{ fromJson('[needs.discover.outputs.flake-inputs]') }}
     steps:
       - uses: ./.github/workflows/setup-bot.yml
         with:
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: ${{ fromJson('["' + needs.discover.outputs.packages + '"]') }}
+        package: ${{ fromJson('[needs.discover.outputs.packages]') }}
     steps:
       - uses: ./.github/actions/setup-bot.yml
         id: bot-token
