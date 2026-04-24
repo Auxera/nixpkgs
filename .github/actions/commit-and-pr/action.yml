@@ -33,7 +33,7 @@ runs:
         fi
 
     - name: Commit and push
-      if: inputs.changes == 'true' || steps.check-changes.outputs.has_changes
+      if: (inputs.changes == 'true' || steps.check-changes.outputs.has_changes) && inputs.title != ''
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.bot-token }}
@@ -44,7 +44,7 @@ runs:
         git push -u origin ${{ inputs.branch }}
 
     - name: Create PR
-      if: inputs.changes == 'true' || steps.check-changes.outputs.has_changes
+      if: (inputs.changes == 'true' || steps.check-changes.outputs.has_changes) && inputs.title != ''
       id: create-pr
       shell: bash
       env:
@@ -59,7 +59,7 @@ runs:
         echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
     - name: Enable auto-merge
-      if: inputs.auto-merge == 'true' && (inputs.changes == 'true' || steps.check-changes.outputs.has_changes)
+      if: inputs.auto-merge == 'true' && inputs.title != '' && (inputs.changes == 'true' || steps.check-changes.outputs.has_changes)
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.bot-token }}

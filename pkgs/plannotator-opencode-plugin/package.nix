@@ -9,13 +9,13 @@
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "plannotator-opencode-plugin";
-  version = "0.18.0";
+  version = "0.19.1";
 
   src = fetchFromGitHub {
     owner = "backnotprop";
     repo = "plannotator";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-FOjR+Z58GrKjzDLKdF7EicWGHwF5Yo+pZWuwoyHvfZ4=";
+    hash = "sha256-jTbPHkMDHov1//00Q7f+S1Hwwf2NSWkOrCmOgRdPvYA=";
   };
 
   node_modules = stdenvNoCC.mkDerivation {
@@ -34,7 +34,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
       bun install \
         --cpu="*" \
-        --frozen-lockfile \
         --ignore-scripts \
         --no-progress \
         --os="*"
@@ -53,16 +52,15 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     dontFixup = true;
 
-    outputHash = "sha256-vYODUaPygoDFodY0kqVsi6uiJho/FTRpGQLd0BJBRWA";
+    outputHash = "sha256-X+gZjUxSYsUM8I8y9+4WA+tXyd+pfoGzl3czQebFSJA=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
 
-  strictDeps = true;
-
   nativeBuildInputs = [
     bun
     nodejs
+    writableTmpDirAsHomeHook
   ];
 
   dontFixup = true;
@@ -71,8 +69,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
      runHook preConfigure
 
     cp -R ${finalAttrs.node_modules}/. .
-    	patchShebangs node_modules
-     patchShebangs packages/*/node_modules
+    patchShebangs node_modules
+    patchShebangs apps/*/node_modules
+    patchShebangs packages/*/node_modules
 
      runHook postConfigure
   '';
@@ -80,22 +79,20 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   buildPhase = ''
     runHook preBuild
 
-
-
     (
-      cd apps/review
+      cd ./apps/review
       bun vite build
     )
 
     (
-      cd apps/hook
+      cd ./apps/hook
       bun vite build
-      cp dist/index.html dist/redline.html
-      cp ../review/dist/index.html dist/review.html
+      cp ./dist/index.html ./dist/redline.html
+      cp ../review/dist/index.html ./dist/review.html
     )
 
     (
-      cd apps/opencode-plugin
+      cd ./apps/opencode-plugin
       cp ../hook/dist/index.html ./plannotator.html
       cp ../review/dist/index.html ./review-editor.html
       bun build index.ts --outfile dist/index.js --target bun --packages=bundle
@@ -106,9 +103,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   installPhase = ''
     runHook preInstall
-
-    ls -la apps/opencode-plugin/
-    ls -la apps/opencode-plugin/commands/
 
     install -Dm644 apps/opencode-plugin/dist/index.js "$out/plugins/plannotator.js"
     install -Dm644 apps/opencode-plugin/plannotator.html "$out/plannotator.html"

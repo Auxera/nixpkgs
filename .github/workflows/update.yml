@@ -81,12 +81,15 @@ jobs:
           NIX_PATH: nixpkgs=channel:nixos-unstable
         run: |
           nix develop -c bash -c '
-            nix-update ${{ matrix.package }} --flake -u --write-commit-message="/tmp/full.txt"
-            head -n1 /tmp/full.txt > /tmp/first.txt
-            echo "message-short=$(cat /tmp/first.txt)" >> $GITHUB_OUTPUT
-            echo "message-long<<EOF" >> $GITHUB_OUTPUT
-            cat /tmp/full.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            if nix-update ${{ matrix.package }} --flake -u --write-commit-message="/tmp/full.txt"; then
+              if [ -f /tmp/full.txt ]; then
+                head -n1 /tmp/full.txt > /tmp/first.txt
+                echo "message-short=$(cat /tmp/first.txt)" >> $GITHUB_OUTPUT
+                echo "message-long<<EOF" >> $GITHUB_OUTPUT
+                cat /tmp/full.txt >> $GITHUB_OUTPUT
+                echo "EOF" >> $GITHUB_OUTPUT
+              fi
+            fi
           '
 
       - uses: ./.github/actions/commit-and-pr
