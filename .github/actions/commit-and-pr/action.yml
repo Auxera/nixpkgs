@@ -45,14 +45,23 @@ runs:
 
     - name: Create PR
       if: inputs.changes == 'true' || steps.check-changes.outputs.has_changes
+      id: create-pr
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.bot-token }}
       run: |
-        gh pr create \
+        PR_URL=$(gh pr create \
           --base main \
           --head ${{ inputs.branch }} \
           --title "${{ inputs.title }}" \
           --body "${{ inputs.body }}" \
-          --label "automated,dependencies" \
-          ${{ inputs.auto-merge == 'true' && '--auto-merge' || '' }}
+          --label "automated,dependencies")
+        echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+    - name: Enable auto-merge
+      if: inputs.auto-merge == 'true' && (inputs.changes == 'true' || steps.check-changes.outputs.has_changes)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.bot-token }}
+      run: |
+        gh pr merge ${{ steps.create-pr.outputs.pr_url }} --auto
