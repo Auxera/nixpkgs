@@ -47,7 +47,7 @@ jobs:
           if [[ -z "$PACKAGES" ]]; then
             echo "packages=[]" >> $GITHUB_OUTPUT
           else
-            PACKAGES=$(echo "$PACKAGES" | tr ',' '\n' | jq -R . | jq -s .)
+            PACKAGES=$(echo "$PACKAGES" | tr ',' '\n' | jq -R . | jq -c -s .)
             echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
           fi
 
