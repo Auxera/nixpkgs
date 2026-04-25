@@ -1,0 +1,32 @@
+name: Setup bot
+description: Get bot credentials and output tokens and set git config
+inputs:
+  app-id:
+    description: "GitHub App ID"
+    required: true
+  private-key:
+    description: "GitHub App private key"
+    required: true
+outputs:
+  token:
+    description: "GitHub app token"
+    value: ${{ steps.token.outputs.token }}
+  slug:
+    description: "GitHub app slug"
+    value: ${{ steps.token.outputs.app-slug }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/create-github-app-token@v2
+      id: token
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Set outputs
+      shell: bash
+      run: |
+        echo "token=${{ steps.token.outputs.token }}" >> $GITHUB_OUTPUT
+        echo "slug=${{ steps.token.outputs.app-slug }}" >> $GITHUB_OUTPUT
+        git config user.name "${{ steps.token.outputs.app-slug }}[bot]"
+        git config user.email "${{ steps.token.outputs.app-slug }}[bot]@users.noreply.github.com"

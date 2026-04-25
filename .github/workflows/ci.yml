@@ -1,70 +1,62 @@
 name: CI
 
 on:
-    pull_request:
-    merge_group:
-
-permissions:
-    statuses: write
-    pull-requests: write
+  pull_request:
+  merge_group:
+  workflow_dispatch:
 
 concurrency:
-    group: ci-${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    fmt:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v6
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
 
-            - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@v31
 
-            - name: Alejandra format check
-              run: nix run nixpkgs#alejandra -- --check .
+      - name: Alejandra format check
+        run: nix run nixpkgs#alejandra -- --check .
 
-    flake-check:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v6
+  flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
 
-            - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@v31
 
-            - name: Flake checks
-              run: nix flake check --all-systems --print-build-logs
+      - name: Flake checks
+        run: nix flake check --all-systems --print-build-logs
 
-    discover:
-        needs:
-            - fmt
-            - flake-check
-        runs-on: ubuntu-latest
-        outputs:
-            matrix: ${{ steps.discover.outputs.matrix }}
-            has-changes: ${{ steps.discover.outputs.has-changes }}
-        steps:
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
+  discover:
+    needs:
+      - fmt
+      - flake-check
+    uses: ./.github/workflows/discover.yml
+    with:
+      changed-only: true
 
-            - uses: cachix/install-nix-action@v31
+  test_build:
+    needs:
+      - discover
+    if: needs.discover.outputs.package-matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.package-matrix || '[]') }}
+    runs-on: ${{ matrix.system == 'aarch64-darwin' && 'macos-latest' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v6
 
-            - id: discover
-              run: |
-                  CHANGED_FILES="$(git diff --name-only origin/main...HEAD | tr '\n' ' ')"
-                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts discover-build-targets --changed-files "$CHANGED_FILES"
+      - uses: cachix/install-nix-action@v31
 
-    test_build:
-        needs:
-            - discover
-        if: needs.discover.outputs.has-changes == 'true'
-        strategy:
-            fail-fast: false
-            matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
-        runs-on: ${{ matrix.runs_on }}
-        steps:
-            - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: auxera
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
 
-            - uses: cachix/install-nix-action@v31
-
-            - name: Build changed package
-              run: nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"
+      - name: Build changed package
+        run: nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"

@@ -1,53 +1,37 @@
 name: Build And Publish
 
 on:
-    merge_group:
-        branches: [main]
-    workflow_dispatch:
+  merge_group:
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-    group: build-publish-${{ github.ref }}
-    cancel-in-progress: true
-
-permissions:
-    contents: read
+  group: build-publish-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    discover:
-        runs-on: ubuntu-latest
-        outputs:
-            matrix: ${{ steps.discover.outputs.matrix }}
-            has-changes: ${{ steps.discover.outputs.has-changes }}
-        steps:
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
+  discover:
+    uses: ./.github/workflows/discover.yml
+    with:
+      changed-only: true
 
-            - uses: cachix/install-nix-action@v31
+  build:
+    needs:
+      - discover
+    if: needs.discover.outputs.package-matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.package-matrix) }}
+    runs-on: ${{ matrix.system == 'aarch64-darwin' && 'macos-latest' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v6
 
-            - id: discover
-              run: |
-                  CHANGED_FILES="$(git diff --name-only origin/main...HEAD | tr '\n' ' ')"
-                  nix run nixpkgs#bun -- tools/update-cli/src/main.ts discover-build-targets --changed-files "$CHANGED_FILES"
+      - uses: cachix/install-nix-action@v31
 
-    build:
-        needs: discover
-        if: needs.discover.outputs.has-changes == 'true'
-        runs-on: ${{ matrix.runs_on }}
-        strategy:
-            fail-fast: false
-            matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
-        steps:
-            - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: auxera
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-            - uses: cachix/install-nix-action@v31
-
-            - uses: cachix/cachix-action@v17
-              with:
-                  name: auxera
-                  authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-                  pushFilter: |
-                      !**/*.drv
-
-            - name: Build and push changed package
-              run: nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"
+      - name: Build and push changed package
+        run: nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"

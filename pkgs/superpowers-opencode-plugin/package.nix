@@ -1,46 +1,40 @@
 {
   lib,
   stdenvNoCC,
-  readPackageHashes,
   fetchFromGitHub,
-}: let
-  versionData = readPackageHashes {
-    inherit lib stdenvNoCC;
-    packageDir = ./.;
-    needsOutputHash = false;
-  };
-  inherit (versionData) version hash;
-  sourceInfo = {
+  nix-update-script,
+}:
+stdenvNoCC.mkDerivation (finalAttrs: {
+  pname = "superpowers-opencode-plugin";
+  version = "5.0.7";
+
+  src = fetchFromGitHub {
     owner = "obra";
     repo = "superpowers";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-HQtO9cZfPPIkHDj64NeQuG9p9WhSKBVkWGWhZkZjZoo=";
   };
-in
-  stdenvNoCC.mkDerivation {
-    pname = "superpowers-opencode-plugin";
-    inherit version;
 
-    src = fetchFromGitHub {
-      inherit (sourceInfo) owner repo;
-      rev = "v${version}";
-      inherit hash;
-    };
+  installPhase = ''
+    runHook preInstall
 
-    installPhase = ''
-      runHook preInstall
+    install -Dm644 .opencode/plugins/superpowers.js "$out/superpowers.js"
+    cp -r skills "$out/skills"
 
-      install -Dm644 .opencode/plugins/superpowers.js "$out/.opencode/plugins/superpowers.js"
-      cp -r skills "$out/skills"
+    runHook postInstall
+  '';
 
-      runHook postInstall
-    '';
+  passthru.updateScript = nix-update-script {
+    extraArgs = [
+      "--flake"
+    ];
+  };
 
-    meta = {
-      description = "Superpowers OpenCode plugin and skills from source";
-      homepage = "https://github.com/obra/superpowers";
-      changelog = "https://github.com/obra/superpowers/releases/tag/v${version}";
-      license = [lib.licenses.mit];
-      platforms = lib.platforms.unix;
-    };
-
-    passthru.sourceInfo = sourceInfo;
-  }
+  meta = {
+    description = "Superpowers OpenCode plugin and skills from source";
+    homepage = "https://github.com/obra/superpowers";
+    changelog = "https://github.com/obra/superpowers/releases/tag/v${finalAttrs.version}";
+    license = [lib.licenses.mit];
+    platforms = lib.platforms.unix;
+  };
+})
