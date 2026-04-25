@@ -32,6 +32,28 @@ runs:
           echo "has_changes=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Check and cleanup existing branch/PR
+      if: inputs.title != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.bot-token }}
+      run: |
+        BRANCH="${{ inputs.branch }}"
+
+        if git ls-remote --heads origin "$BRANCH" | grep -q .; then
+          echo "Branch exists, checking for PR..."
+
+          PR_JSON=$(gh pr view "$BRANCH" --json number,state 2>/dev/null || echo '{}')
+          if echo "$PR_JSON" | jq -r '.state' 2>/dev/null | grep -q "OPEN"; then
+            PR_NUM=$(echo "$PR_JSON" | jq -r '.number')
+            echo "Closing existing PR #$PR_NUM"
+            gh pr close "$PR_NUM"
+          fi
+
+          echo "Deleting branch $BRANCH"
+          git push origin --delete "$BRANCH"
+        fi
+
     - name: Commit and push
       if: (inputs.changes == 'true' || steps.check-changes.outputs.has_changes) && inputs.title != ''
       shell: bash
