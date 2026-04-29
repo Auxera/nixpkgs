@@ -60,3 +60,10 @@ jobs:
 
       - name: Build changed package
         run: nix build --print-build-logs ".#packages.${{ matrix.system }}.${{ matrix.package }}"
+
+  test_build_complete:
+    needs: test_build
+    if: always() && needs.test_build.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All matrix builds completed"
