@@ -13,7 +13,7 @@ in {
   config = lib.mkIf cfg.enable {
     home.packages = [auxera.superpowers-opencode-plugin];
 
-    xdg.configFile."opencode/plugins/superpowers.js".source = "${auxera.superpowers-opencode-plugin}/.opencode/plugins/superpowers.js";
+    xdg.configFile."opencode/plugins/superpowers.js".source = "${auxera.superpowers-opencode-plugin}/superpowers.js";
     xdg.configFile."opencode/skills" = {
       source = "${auxera.superpowers-opencode-plugin}/skills";
       recursive = true;

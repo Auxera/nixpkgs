@@ -36,9 +36,21 @@
     url = "https://registry.npmjs.org/is-docker/-/is-docker-2.2.1.tgz";
     hash = "sha512-F+i2BKsFrH66iaUFc0woD8sLy8getkwTwtOBjvs56Cx4CgJDeKQeqfz8wAYiSb8JOprWhHH5p77PbmYCvvUuXQ==";
   };
+  "is-docker@3.0.0" = fetchurl {
+    url = "https://registry.npmjs.org/is-docker/-/is-docker-3.0.0.tgz";
+    hash = "sha512-eljcgEDlEns/7AXFosB5K/2nCM4P7FQPkGc/DWLy5rmFEWvZayGrik1d9/QIY5nJ4f9YsVvBkA6kJpHn9rISdQ==";
+  };
+  "is-inside-container@1.0.0" = fetchurl {
+    url = "https://registry.npmjs.org/is-inside-container/-/is-inside-container-1.0.0.tgz";
+    hash = "sha512-KIYLCCJghfHZxqjYBE7rEy0OBuTd5xCHS7tHVgvCLkx7StIoaxwNW3hCALgEUjFfeRk+MG/Qxmp/vtETEF3tRA==";
+  };
   "is-wsl@2.2.0" = fetchurl {
     url = "https://registry.npmjs.org/is-wsl/-/is-wsl-2.2.0.tgz";
     hash = "sha512-fKzAra0rGJUUBwGBgNkHZuToZcn+TtXHpeCgmkMJMMYx1sQDYaCSyjJBSCa2nH1DGm7s3n1oBnohoVTBaN7Lww==";
+  };
+  "is-wsl@3.1.1" = fetchurl {
+    url = "https://registry.npmjs.org/is-wsl/-/is-wsl-3.1.1.tgz";
+    hash = "sha512-e6rvdUCiQCAuumZslxRJWR/Doq4VpPR82kqclvcS0efgt430SlGIk05vdCN58+VrzgtIcfNODjozVielycD4Sw==";
   };
   "isexe@2.0.0" = fetchurl {
     url = "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz";

@@ -24,18 +24,15 @@
   }: let
     systems = [
       "x86_64-linux"
-      "aarch64-linux"
       "aarch64-darwin"
     ];
   in
     {
-      lib.readPackageHashes = import ./lib/read-package-hashes.nix;
-
-      overlays.default = final: prev: let
-        bunOverlay = bun2nix.overlays.default final prev;
-      in
-        (import ./overlay.nix final prev)
-        // bunOverlay;
+      overlays.default = final: prev: {
+        auxera = import ./pkgs {
+          pkgs = final;
+        };
+      };
 
       homeManagerModules.default = import ./modules/home-manager;
       homeManagerModules.opencode-notifier-plugin = import ./modules/home-manager/opencode-notifier-plugin;
@@ -44,16 +41,24 @@
     }
     // flake-utils.lib.eachSystem systems (
       system: let
+        alejandra = pkgs.alejandra;
+
         pkgs = import nixpkgs {
-          inherit system;
-          overlays = [self.overlays.default];
+          inherit system alejandra;
+          overlays = [self.overlays.default bun2nix.overlays.default];
         };
+
         auxera-pkgs = pkgs.auxera;
+        supported =
+          pkgs.lib.filterAttrs (
+            name: pkg:
+              pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkg
+          )
+          auxera-pkgs;
       in {
         packages =
-          auxera-pkgs
+          supported
           // {
-            opencode = auxera-pkgs.opencode;
             default = auxera-pkgs.opencode;
           };
 
@@ -64,12 +69,12 @@
         '';
 
         devShells.default = pkgs.mkShell {
-          packages = with pkgs;
-            [
-              alejandra
-              git
-            ]
-            ++ [bun2nix.packages.${system}.bun2nix];
+          packages = with pkgs; [
+            alejandra
+            git
+            nix-update
+            bun2nix.packages.${system}.bun2nix
+          ];
         };
       }
     );

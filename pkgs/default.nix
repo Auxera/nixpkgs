@@ -1,7 +1,4 @@
-{
-  pkgs,
-  auxeraLib ? pkgs.auxeraLib or {},
-}: let
+{pkgs}: let
   inherit
     (pkgs.lib)
     attrNames
@@ -17,13 +14,12 @@
       name: kind:
         kind
         == "directory"
-        && name != "__pycache__"
         && pathExists (./. + "/${name}/default.nix")
     )
     dirEntries
   );
 
-  callPackage = pkgs.lib.callPackageWith (pkgs // self // auxeraLib // {inherit callPackage;});
+  callPackage = pkgs.lib.callPackageWith (pkgs // self // {inherit callPackage;});
 
   autoPackages = genAttrs packageDirs (name: callPackage (./. + "/${name}") {});
 
