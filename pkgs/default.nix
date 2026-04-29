@@ -1,4 +1,7 @@
-{pkgs}: let
+{
+  pkgs,
+  bun2nix ? null,
+}: let
   inherit
     (pkgs.lib)
     attrNames

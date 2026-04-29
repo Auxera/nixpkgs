@@ -31,6 +31,7 @@
       overlays.default = final: prev: {
         auxera = import ./pkgs {
           pkgs = final;
+          inherit (final) bun2nix;
         };
       };
 
