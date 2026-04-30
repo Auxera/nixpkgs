@@ -22,7 +22,7 @@
     dirEntries
   );
 
-  callPackage = pkgs.lib.callPackageWith (pkgs // self // {inherit callPackage;});
+  callPackage = pkgs.lib.callPackageWith (pkgs // self // {inherit callPackage bun2nix;});
 
   autoPackages = genAttrs packageDirs (name: callPackage (./. + "/${name}") {});
 

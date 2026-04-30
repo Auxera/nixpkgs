@@ -28,12 +28,16 @@
     ];
   in
     {
-      overlays.default = final: prev: {
-        auxera = import ./pkgs {
-          pkgs = final;
-          inherit (final) bun2nix;
+      overlays.default = final: prev: let
+        bun2nixOverlay = bun2nix.overlays.default final prev;
+      in
+        bun2nixOverlay
+        // {
+          auxera = import ./pkgs {
+            pkgs = final;
+            bun2nix = bun2nixOverlay.bun2nix;
+          };
         };
-      };
 
       homeManagerModules.default = import ./modules/home-manager;
       homeManagerModules.opencode-notifier-plugin = import ./modules/home-manager/opencode-notifier-plugin;

@@ -5,5 +5,8 @@
     ./superpowers-opencode-plugin
   ];
 
-  _module.args.auxera = import ../../pkgs {inherit pkgs;};
+  _module.args.auxera = import ../../pkgs {
+    inherit pkgs;
+    bun2nix = pkgs.bun2nix;
+  };
 }
