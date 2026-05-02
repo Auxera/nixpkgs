@@ -9,13 +9,13 @@
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "plannotator-opencode-plugin";
-  version = "0.19.0";
+  version = "0.19.6";
 
   src = fetchFromGitHub {
     owner = "backnotprop";
     repo = "plannotator";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-+Z7sY9ImCi9wOE+4iLv2L+zk03fVuF237QPpzCTe8rg=";
+    hash = "sha256-Iec0d8dHn1yZxh182fKuFaVgRLEFrHe3JZSqS844/aQ=";
   };
 
   node_modules = stdenvNoCC.mkDerivation {
@@ -53,7 +53,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     dontFixup = true;
 
-    outputHash = "sha256-eCe6AHWZPSDglm2ETI3n9iM8yFtjV1L1+Kxkv+WN07Y=";
+    outputHash = "sha256-wToQnAXPbheihItN9pA0aJuRdZiOJkfpva+X1Lrya8U=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
