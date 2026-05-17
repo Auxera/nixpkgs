@@ -14,7 +14,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "Fission-AI";
     repo = "OpenSpec";
-    tag = "v${finalAttrs.version}";
+    rev = "v${finalAttrs.version}";
     hash = "sha256-L4LBHVVtgMhSJm+IzZSYOR0UXPbvIRg4xiEV5urYxdI=";
   };
 
@@ -31,18 +31,22 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     buildPhase = ''
       runHook preBuild
+
       bun install \
         --cpu="*" \
         --ignore-scripts \
         --no-progress \
         --os="*"
+
       runHook postBuild
     '';
 
     installPhase = ''
       runHook preInstall
+
       mkdir -p $out
       find . -type d -name node_modules -exec cp -R --parents {} $out \;
+
       runHook postInstall
     '';
 
@@ -54,6 +58,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   nativeBuildInputs = [
+    bun
     nodejs
     writableTmpDirAsHomeHook
   ];
@@ -62,21 +67,24 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   configurePhase = ''
     runHook preConfigure
+
     cp -R ${finalAttrs.node_modules}/. .
     patchShebangs node_modules
+
     runHook postConfigure
   '';
 
   buildPhase = ''
     runHook preBuild
+
     node build.js
+
     runHook postBuild
   '';
 
   installPhase = ''
     runHook preInstall
 
-    # Preserve repo layout: bin/openspec.js imports ../dist/cli/index.js
     mkdir -p $out/lib/openspec
     cp -r dist $out/lib/openspec/
     cp -r bin $out/lib/openspec/
@@ -84,7 +92,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     cp -r node_modules $out/lib/openspec/
     install -Dm644 package.json $out/lib/openspec/package.json
 
-    # Symlink the CLI into $out/bin
     mkdir -p $out/bin
     ln -s $out/lib/openspec/bin/openspec.js $out/bin/openspec
     patchShebangs $out/lib/openspec/bin/openspec.js
