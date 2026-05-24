@@ -1,11 +1,12 @@
 {
   lib,
   stdenvNoCC,
-  bun,
   nodejs,
   fetchFromGitHub,
-  writableTmpDirAsHomeHook,
   nix-update-script,
+  fetchPnpmDeps,
+  pnpmConfigHook,
+  pnpm,
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "openspec";
@@ -18,61 +19,17 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     hash = "sha256-L4LBHVVtgMhSJm+IzZSYOR0UXPbvIRg4xiEV5urYxdI=";
   };
 
-  node_modules = stdenvNoCC.mkDerivation {
-    pname = "${finalAttrs.pname}-node_modules";
-    inherit (finalAttrs) version src;
-
-    nativeBuildInputs = [
-      bun
-      writableTmpDirAsHomeHook
-    ];
-
-    dontConfigure = true;
-
-    buildPhase = ''
-      runHook preBuild
-
-      bun install \
-        --cpu="*" \
-        --ignore-scripts \
-        --no-progress \
-        --os="*"
-
-      runHook postBuild
-    '';
-
-    installPhase = ''
-      runHook preInstall
-
-      mkdir -p $out
-      find . -type d -name node_modules -exec cp -R --parents {} $out \;
-
-      runHook postInstall
-    '';
-
-    dontFixup = true;
-
-    outputHash = "sha256-3I/bQG/PzjGW5Si9yxpdcQ91P5yUG4fonLgk5dLIPk0=";
-    outputHashAlgo = "sha256";
-    outputHashMode = "recursive";
+  pnpmDeps = fetchPnpmDeps {
+    inherit (finalAttrs) pname version src;
+    fetcherVersion = 3;
+    hash = "sha256-FToFJ7TnChnKCVLreTd2zJyiuHt8gdEBsMKk6F+uoao=";
   };
 
   nativeBuildInputs = [
-    bun
     nodejs
-    writableTmpDirAsHomeHook
+    pnpmConfigHook
+    pnpm
   ];
-
-  dontFixup = true;
-
-  configurePhase = ''
-    runHook preConfigure
-
-    cp -R ${finalAttrs.node_modules}/. .
-    patchShebangs node_modules
-
-    runHook postConfigure
-  '';
 
   buildPhase = ''
     runHook preBuild
