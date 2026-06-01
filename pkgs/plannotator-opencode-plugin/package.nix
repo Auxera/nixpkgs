@@ -9,13 +9,13 @@
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "plannotator-opencode-plugin";
-  version = "0.19.23";
+  version = "0.19.26";
 
   src = fetchFromGitHub {
     owner = "backnotprop";
     repo = "plannotator";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-r4IKxdR4dBQiifs/xO+t8cQr+Y8lCbEbEq8cuoDhRCg=";
+    hash = "sha256-Wvgw7WBQum7UeCLKp5sUy1vnZLdTWxggjYZluc7dbb0=";
   };
 
   node_modules = stdenvNoCC.mkDerivation {
