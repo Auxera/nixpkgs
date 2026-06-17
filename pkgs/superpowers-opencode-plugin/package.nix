@@ -6,13 +6,13 @@
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "superpowers-opencode-plugin";
-  version = "5.1.0";
+  version = "6.0.2";
 
   src = fetchFromGitHub {
     owner = "obra";
     repo = "superpowers";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-3E3rO6hR87JUfS3XV1Eaoz6SDWOftleWvN9UPNFEMjw=";
+    hash = "sha256-D47uMC80wcIMNzW/rA7VUVGc4hzlmcZJMCrLyp2lbAY=";
   };
 
   installPhase = ''
