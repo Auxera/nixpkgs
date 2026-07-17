@@ -88,7 +88,9 @@ in
     # herdr's nix/package.nix and nixpkgs' by-name derivation).
     doCheck = false;
 
-    passthru.updateScript = nix-update-script {};
+    passthru.updateScript = nix-update-script {
+      extraArgs = ["--flake"];
+    };
 
     meta = {
       description = "Agent multiplexer that lives in your terminal";
