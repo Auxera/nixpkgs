@@ -54,16 +54,10 @@ buildNpmPackage (finalAttrs: {
   buildPhase = ''
     runHook preBuild
 
-    # Future-proof: delegate to upstream's canonical offline build if present.
-    # `scripts.build:offline` (package.json) encodes the correct workspace order
-    # (e.g. tui → telemetry → ai → agent → sqlite-node → protocol → client → server → coding-agent)
-    # and is updated upstream when new workspaces are added. Using it means this
-    # derivation automatically picks up new packages like `pi-telemetry` introduced in 0.84.
-    # `preConfigure` has already hydrated packages/ai/src/providers/data.
+    # Mirrors upstream: npm run build:offline (see package.json and scripts/build-binaries.sh --offline-model-data)
     if jq -e '.scripts["build:offline"]' package.json > /dev/null 2>&1; then
       npm run build:offline
     else
-      # Fallback for very old tags without build:offline — ordered manually.
       npx tsgo -p packages/telemetry/tsconfig.build.json || true
       npx tsgo -p packages/tui/tsconfig.build.json
       npx tsgo -p packages/ai/tsconfig.build.json
@@ -82,15 +76,10 @@ buildNpmPackage (finalAttrs: {
     ''
       local nm="$out/lib/node_modules/pi-monorepo/node_modules"
 
-      # Future-proof: copy every @earendil-works workspace (except the main
-      # coding-agent workspace) from source into the installed node_modules.
-      # Previously this was a hardcoded list (pi-ai, pi-agent-core, pi-tui)
-      # which broke when upstream added pi-telemetry, pi-protocol, pi-client,
-      # pi-server, pi-session-backend-sqlite-node, etc. in 0.84.
+      # Copy all @earendil-works workspaces into installed node_modules
       for pkgJson in packages/*/package.json packages/*/*/package.json packages/*/*/*/package.json; do
         [ -f "$pkgJson" ] || continue
         dir=$(dirname "$pkgJson")
-        # Skip the npmWorkspace itself — it is already the installed package
         if [ "$dir" = "packages/coding-agent" ]; then continue; fi
         pkg=$(jq -r '.name // empty' "$pkgJson")
         case "$pkg" in
@@ -103,7 +92,6 @@ buildNpmPackage (finalAttrs: {
       done
 
       find "$nm" -type l -lname '*/packages/*' -delete 2>/dev/null || true
-
       find "$nm/.bin" -xtype l -delete 2>/dev/null || true
     ''
     + lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
