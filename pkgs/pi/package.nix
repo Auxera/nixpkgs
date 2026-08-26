@@ -7,6 +7,7 @@
   stdenvNoCC,
   ripgrep,
   fd,
+  jq,
   writableTmpDirAsHomeHook,
   versionCheckHook,
   nix-update-script,
@@ -47,15 +48,32 @@ buildNpmPackage (finalAttrs: {
 
   nativeBuildInputs = [
     makeBinaryWrapper
+    jq
   ];
 
   buildPhase = ''
     runHook preBuild
 
-    npx tsgo -p packages/ai/tsconfig.build.json
-    npx tsgo -p packages/tui/tsconfig.build.json
-    npx tsgo -p packages/agent/tsconfig.build.json
-    npm run build --workspace=packages/coding-agent
+    # Future-proof: delegate to upstream's canonical offline build if present.
+    # `scripts.build:offline` (package.json) encodes the correct workspace order
+    # (e.g. tui → telemetry → ai → agent → sqlite-node → protocol → client → server → coding-agent)
+    # and is updated upstream when new workspaces are added. Using it means this
+    # derivation automatically picks up new packages like `pi-telemetry` introduced in 0.84.
+    # `preConfigure` has already hydrated packages/ai/src/providers/data.
+    if jq -e '.scripts["build:offline"]' package.json > /dev/null 2>&1; then
+      npm run build:offline
+    else
+      # Fallback for very old tags without build:offline — ordered manually.
+      npx tsgo -p packages/telemetry/tsconfig.build.json || true
+      npx tsgo -p packages/tui/tsconfig.build.json
+      npx tsgo -p packages/ai/tsconfig.build.json
+      npx tsgo -p packages/agent/tsconfig.build.json
+      if [ -f packages/protocol/tsconfig.build.json ]; then npx tsgo -p packages/protocol/tsconfig.build.json; fi
+      if [ -f packages/client/tsconfig.build.json ]; then npx tsgo -p packages/client/tsconfig.build.json; fi
+      if [ -f packages/server/tsconfig.build.json ]; then npx tsgo -p packages/server/tsconfig.build.json; fi
+      if [ -f packages/session-backends/sqlite-node/tsconfig.build.json ]; then npx tsgo -p packages/session-backends/sqlite-node/tsconfig.build.json; fi
+      npm run build --workspace=packages/coding-agent
+    fi
 
     runHook postBuild
   '';
@@ -64,17 +82,29 @@ buildNpmPackage (finalAttrs: {
     ''
       local nm="$out/lib/node_modules/pi-monorepo/node_modules"
 
-      for ws in @earendil-works/pi-ai:packages/ai \
-                @earendil-works/pi-agent-core:packages/agent \
-                @earendil-works/pi-tui:packages/tui; do
-        IFS=: read -r pkg src <<< "$ws"
-        rm "$nm/$pkg"
-        cp -r "$src" "$nm/$pkg"
+      # Future-proof: copy every @earendil-works workspace (except the main
+      # coding-agent workspace) from source into the installed node_modules.
+      # Previously this was a hardcoded list (pi-ai, pi-agent-core, pi-tui)
+      # which broke when upstream added pi-telemetry, pi-protocol, pi-client,
+      # pi-server, pi-session-backend-sqlite-node, etc. in 0.84.
+      for pkgJson in packages/*/package.json packages/*/*/package.json packages/*/*/*/package.json; do
+        [ -f "$pkgJson" ] || continue
+        dir=$(dirname "$pkgJson")
+        # Skip the npmWorkspace itself — it is already the installed package
+        if [ "$dir" = "packages/coding-agent" ]; then continue; fi
+        pkg=$(jq -r '.name // empty' "$pkgJson")
+        case "$pkg" in
+          @earendil-works/*)
+            if [ -e "$nm/$pkg" ] || [ -L "$nm/$pkg" ]; then rm -rf "$nm/$pkg"; fi
+            mkdir -p "$(dirname "$nm/$pkg")"
+            cp -r "$dir" "$nm/$pkg"
+            ;;
+        esac
       done
 
-      find "$nm" -type l -lname '*/packages/*' -delete
+      find "$nm" -type l -lname '*/packages/*' -delete 2>/dev/null || true
 
-      find "$nm/.bin" -xtype l -delete
+      find "$nm/.bin" -xtype l -delete 2>/dev/null || true
     ''
     + lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
       # Remove foreign Linux binaries that make audit-tmpdir try to inspect ELF
