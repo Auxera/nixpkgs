@@ -9,6 +9,7 @@
   nix-update-script,
   ripgrep,
   sysctl,
+  wayland,
   installShellFiles,
   versionCheckHook,
   writableTmpDirAsHomeHook,
@@ -24,59 +25,89 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     hash = "sha256-1q90OvTRg0Jdf46L1M2YY2CwGRC3ypJ3O5JF4WqYqvY=";
   };
 
-  node_modules = stdenvNoCC.mkDerivation {
-    pname = "${finalAttrs.pname}-node_modules";
-    inherit (finalAttrs) version src;
+  # Mirrors upstream nix/node_modules.nix (same bun filters/flags and
+  # canonicalize scripts). Two deliberate differences:
+  # - src/version are inherited here instead of a fileset checkout.
+  # - outputHash is per-system, computed with our nixpkgs bun (currently
+  #   1.3.x; upstream uses 1.4.x, so upstream nix/hashes.json does not match
+  #   our closure). NOTE: `nix-update --subpackage node_modules` (linux
+  #   runner) only refreshes the linux hash; refresh the darwin hash locally
+  #   via `nix build .#packages.aarch64-darwin.opencode` on a hash mismatch.
+  node_modules = let
+    platform = stdenvNoCC.hostPlatform;
+    bunCpu =
+      if platform.isAarch64
+      then "arm64"
+      else "x64";
+    bunOs =
+      if platform.isLinux
+      then "linux"
+      else "darwin";
+  in
+    stdenvNoCC.mkDerivation {
+      pname = "${finalAttrs.pname}-node_modules";
+      inherit (finalAttrs) version src;
 
-    nativeBuildInputs = [
-      bun
-      writableTmpDirAsHomeHook
-    ];
+      impureEnvVars =
+        lib.fetchers.proxyImpureEnvVars
+        ++ [
+          "GIT_PROXY_COMMAND"
+          "SOCKS_SERVER"
+        ];
 
-    dontConfigure = true;
+      nativeBuildInputs = [
+        bun
+      ];
 
-    buildPhase = ''
-      runHook preBuild
+      dontConfigure = true;
 
-      export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
-      bun install \
-        --cpu="*" \
-        --frozen-lockfile \
-        --filter ./ \
-        --filter ./packages/app \
-        --filter ./packages/desktop \
-        --filter ./packages/opencode \
-        --filter ./packages/shared \
-        --ignore-scripts \
-        --no-progress \
-        --os="*"
-
+      buildPhase = ''
+        runHook preBuild
+        export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+        bun install \
+          --cpu="${bunCpu}" \
+          --os="${bunOs}" \
+          --filter '!./' \
+          --filter './packages/cli' \
+          --filter './packages/desktop' \
+          --filter './packages/app' \
+          --frozen-lockfile \
+          --ignore-scripts \
+          --no-progress
         bun --bun ./nix/scripts/canonicalize-node-modules.ts
         bun --bun ./nix/scripts/normalize-bun-binaries.ts
+        runHook postBuild
+      '';
 
-      runHook postBuild
-    '';
+      installPhase = ''
+        runHook preInstall
+        mkdir -p $out
+        find . -type d -name node_modules -exec cp -R --parents {} $out \;
+        runHook postInstall
+      '';
 
-    installPhase = ''
-      runHook preInstall
+      # NOTE: Required else we get errors that our fixed-output derivation references store paths
+      dontFixup = true;
 
-      mkdir -p $out
-      find . -type d -name node_modules -exec cp -R --parents {} $out \;
+      outputHashAlgo = "sha256";
+      outputHashMode = "recursive";
+      outputHash =
+        if stdenvNoCC.hostPlatform.system == "x86_64-linux"
+        then "sha256-jTkP2Y1E9CHl/HChpAmdTovdOTBEkotuY2B2GARDdEA="
+        else if stdenvNoCC.hostPlatform.system == "aarch64-darwin"
+        then "sha256-H4BK/EtvtT1Tj1yBt7xS9XSPtK4LT4s2vfXOkXCK5zc="
+        else throw "unsupported system ${stdenvNoCC.hostPlatform.system} (see upstream nix/hashes.json)";
 
-      runHook postInstall
-    '';
-
-    # NOTE: Required else we get errors that our fixed-output derivation references store paths
-    dontFixup = true;
-
-    outputHash = "sha256-WTaqz4XEu9yswJhVuA1+RToM+mELdqbChsfAXUb2B/Q=";
-    outputHashAlgo = "sha256";
-    outputHashMode = "recursive";
-  };
+      meta.platforms = [
+        "aarch64-linux"
+        "x86_64-linux"
+        "aarch64-darwin"
+      ];
+    };
 
   nativeBuildInputs = [
     bun
-    nodejs
+    nodejs # for patchShebangs node_modules
     installShellFiles
     makeBinaryWrapper
     models-dev
@@ -103,14 +134,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   env.MODELS_DEV_API_JSON = "${models-dev}/dist/_api.json";
   env.OPENCODE_DISABLE_MODELS_FETCH = true;
   env.OPENCODE_VERSION = finalAttrs.version;
-  env.OPENCODE_CHANNEL = "stable";
+  env.OPENCODE_CHANNEL = "prod";
+  env.NODE_OPTIONS = "--max-old-space-size=4096";
 
   buildPhase = ''
     runHook preBuild
 
-    cd ./packages/opencode
+    cd ./packages/cli
     bun --bun ./script/build.ts --single --skip-install
-    bun --bun ./script/schema.ts config.json tui.json
 
     runHook postBuild
   '';
@@ -118,29 +149,52 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 dist/opencode-*/bin/opencode $out/bin/opencode
+    install -Dm755 dist/cli-*/bin/opencode $out/bin/opencode
+
+    # OpenTUI dlopens Wayland for clipboard images.
     wrapProgram $out/bin/opencode \
-     --prefix PATH : ${
+      --prefix PATH : ${
       lib.makeBinPath (
         [
           ripgrep
         ]
-        ++ lib.optionals stdenvNoCC.hostPlatform.isDarwin [
-          sysctl
-        ]
+        # bun runs sysctl to detect if running on rosetta2
+        ++ lib.optional stdenvNoCC.hostPlatform.isDarwin sysctl
       )
-    }
+    } ${lib.optionalString stdenvNoCC.hostPlatform.isLinux ''
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [wayland]}
+    ''}
 
-    install -Dm644 config.json $out/share/opencode/config.json
-    install -Dm644 tui.json $out/share/opencode/tui.json
+    ln -s opencode $out/bin/opencode2
 
     runHook postInstall
   '';
 
   postInstall = lib.optionalString (stdenvNoCC.buildPlatform.canExecute stdenvNoCC.hostPlatform) ''
+    # v2 dropped the `completion` subcommand; --completions is the global flag.
+    # --completions also accepts sh, which emits the same script as bash.
+    # staged to files, substitute below rejects anything that is not a regular file
+    $out/bin/opencode --completions bash > opencode.bash
+    $out/bin/opencode --completions zsh > _opencode
+    $out/bin/opencode --completions fish > opencode.fish
+
     installShellCompletion --cmd opencode \
-      --bash <($out/bin/opencode completion) \
-      --zsh <(SHELL=/bin/zsh $out/bin/opencode completion)
+      --bash opencode.bash \
+      --fish opencode.fish \
+      --zsh _opencode
+
+    # OPENCODE_CLI_NAME is a build-time define, so the opencode2 copies are
+    # renamed rather than regenerated. --replace-fail is a global literal
+    # substitution, so any lowercase opencode that later appears in a
+    # description or help text ships as opencode2 in the opencode2 copy.
+    substitute opencode.bash opencode2.bash --replace-fail opencode opencode2
+    substitute _opencode _opencode2 --replace-fail opencode opencode2
+    substitute opencode.fish opencode2.fish --replace-fail opencode opencode2
+
+    installShellCompletion --cmd opencode2 \
+      --bash opencode2.bash \
+      --fish opencode2.fish \
+      --zsh _opencode2
   '';
 
   nativeInstallCheckInputs = [
@@ -148,13 +202,11 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     writableTmpDirAsHomeHook
   ];
   doInstallCheck = true;
-  versionCheckKeepEnvironment = [
-    "HOME"
-    "OPENCODE_DISABLE_MODELS_FETCH"
-  ];
+  versionCheckKeepEnvironment = ["HOME" "OPENCODE_DISABLE_MODELS_FETCH"];
   versionCheckProgramArg = "--version";
 
   passthru = {
+    env = finalAttrs.env;
     updateScript = nix-update-script {
       extraArgs = [
         "--subpackage"
@@ -165,13 +217,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "AI coding agent built for the terminal";
-    homepage = "https://github.com/anomalyco/opencode";
+    description = "The open source coding agent";
+    homepage = "https://opencode.ai";
     license = lib.licenses.mit;
-    platforms = [
-      "x86_64-linux"
-      "aarch64-darwin"
-    ];
     mainProgram = "opencode";
+    inherit (finalAttrs.node_modules.meta) platforms;
   };
 })
