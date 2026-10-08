@@ -93,7 +93,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       outputHashMode = "recursive";
       outputHash =
         if stdenvNoCC.hostPlatform.system == "x86_64-linux"
-        then "sha256-jTkP2Y1E9CHl/HChpAmdTovdOTBEkotuY2B2GARDdEA="
+        then "sha256-kDhZibqc7DimuEyoI7kHo3KokWwY+k8hTlnLBpkItd8="
         else if stdenvNoCC.hostPlatform.system == "aarch64-darwin"
         then "sha256-H4BK/EtvtT1Tj1yBt7xS9XSPtK4LT4s2vfXOkXCK5zc="
         else throw "unsupported system ${stdenvNoCC.hostPlatform.system} (see upstream nix/hashes.json)";
