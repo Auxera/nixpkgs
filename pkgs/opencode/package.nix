@@ -9,6 +9,7 @@
   nix-update-script,
   ripgrep,
   sysctl,
+  wayland,
   installShellFiles,
   versionCheckHook,
   writableTmpDirAsHomeHook,
@@ -42,11 +43,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       bun install \
         --cpu="*" \
         --frozen-lockfile \
-        --filter ./ \
+        --filter '!./' \
         --filter ./packages/app \
+        --filter ./packages/cli \
         --filter ./packages/desktop \
-        --filter ./packages/opencode \
-        --filter ./packages/shared \
         --ignore-scripts \
         --no-progress \
         --os="*"
@@ -69,7 +69,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # NOTE: Required else we get errors that our fixed-output derivation references store paths
     dontFixup = true;
 
-    outputHash = "sha256-dH9Kwm2vb2wzLajDKAPlTzsKwhxFAjTqhWA3EuifARw=";
+    outputHash = "sha256-jj/9O+B7rLwb/iCNAR+Wo21zbO3ZCqdapoXrsv7t3Cw=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
@@ -103,14 +103,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   env.MODELS_DEV_API_JSON = "${models-dev}/dist/_api.json";
   env.OPENCODE_DISABLE_MODELS_FETCH = true;
   env.OPENCODE_VERSION = finalAttrs.version;
-  env.OPENCODE_CHANNEL = "stable";
+  env.OPENCODE_CHANNEL = "prod";
+  env.NODE_OPTIONS = "--max-old-space-size=4096";
 
   buildPhase = ''
     runHook preBuild
 
-    cd ./packages/opencode
+    cd ./packages/cli
     bun --bun ./script/build.ts --single --skip-install
-    bun --bun ./script/schema.ts config.json tui.json
 
     runHook postBuild
   '';
@@ -118,29 +118,46 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 dist/opencode-*/bin/opencode $out/bin/opencode
+    install -Dm755 dist/cli-*/bin/opencode $out/bin/opencode
+
+    # OpenTUI dlopens Wayland for clipboard images.
     wrapProgram $out/bin/opencode \
-     --prefix PATH : ${
+      --prefix PATH : ${
       lib.makeBinPath (
         [
           ripgrep
         ]
-        ++ lib.optionals stdenvNoCC.hostPlatform.isDarwin [
-          sysctl
-        ]
+        # bun runs sysctl to detect if running on rosetta2
+        ++ lib.optional stdenvNoCC.hostPlatform.isDarwin sysctl
       )
-    }
+    } ${lib.optionalString stdenvNoCC.hostPlatform.isLinux ''
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [wayland]}
+    ''}
 
-    install -Dm644 config.json $out/share/opencode/config.json
-    install -Dm644 tui.json $out/share/opencode/tui.json
+    ln -s opencode $out/bin/opencode2
 
     runHook postInstall
   '';
 
   postInstall = lib.optionalString (stdenvNoCC.buildPlatform.canExecute stdenvNoCC.hostPlatform) ''
+    # v2 dropped the `completion` subcommand; --completions is the global flag.
+    $out/bin/opencode --completions bash > opencode.bash
+    $out/bin/opencode --completions zsh > _opencode
+    $out/bin/opencode --completions fish > opencode.fish
+
     installShellCompletion --cmd opencode \
-      --bash <($out/bin/opencode completion) \
-      --zsh <(SHELL=/bin/zsh $out/bin/opencode completion)
+      --bash opencode.bash \
+      --fish opencode.fish \
+      --zsh _opencode
+
+    substitute opencode.bash opencode2.bash --replace-fail opencode opencode2
+    substitute _opencode _opencode2 --replace-fail opencode opencode2
+    substitute opencode.fish opencode2.fish --replace-fail opencode opencode2
+
+    installShellCompletion --cmd opencode2 \
+      --bash opencode2.bash \
+      --fish opencode2.fish \
+      --zsh _opencode2
   '';
 
   nativeInstallCheckInputs = [
@@ -165,8 +182,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "AI coding agent built for the terminal";
-    homepage = "https://github.com/anomalyco/opencode";
+    description = "The open source coding agent";
+    homepage = "https://opencode.ai";
     license = lib.licenses.mit;
     platforms = [
       "x86_64-linux"
