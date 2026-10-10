@@ -9,13 +9,13 @@
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode-notifier-plugin";
-  version = "0.8.0";
+  version = "0.8.1";
 
   src = fetchFromGitHub {
     owner = "mohak34";
     repo = "opencode-notifier";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-U6epsSioJN8gMwnGICnyhMN5ENCASMasRwgSbZup3DQ=";
+    hash = "sha256-b0MvZjiDW8UHKBKFE4BCFg9GdMz5Fz33kGjfgaX9M0o=";
   };
 
   nativeBuildInputs = [
