@@ -64,9 +64,10 @@ stdenv.mkDerivation (finalAttrs: {
 
     sourceRoot = "${finalAttrs.src.name}/native/resource-monitor";
 
-    cargoLock = {
-      lockFile = "${finalAttrs.src}/native/resource-monitor/Cargo.lock";
-    };
+    # NOTE: cargoLock.lockFile would read Cargo.lock at eval time, forcing
+    # the src to realize while evaluating for other systems (breaks
+    # `nix flake check`). cargoHash only changes when Cargo.lock does.
+    cargoHash = "sha256-5cmG2daM1bVOA23gjjoalbx0fEL1hmqV6WZov0sUZp8=";
   };
 
   nativeBuildInputs =
