@@ -1,9 +1,13 @@
-# T3 Code nightly CLI (`t3-nightly`) plus the resource-monitor sidecar, built
-# from source. Structurally identical to ../t3code/package.nix, pinned to a
+# T3 Code nightly: CLI (`t3-nightly`) plus the Electron desktop app
+# (`t3code-nightly-desktop`) and the resource-monitor sidecar, built from
+# source. Structurally identical to ../t3code/package.nix, pinned to a
 # nightly tag instead of a stable release.
 #
 # Differences from the stable package:
-# - The binary is named `t3-nightly` so both channels are co-installable.
+# - Binaries, the macOS app, and the Linux desktop entry are suffixed so
+#   both channels are co-installable. The desktop still pairs with its own
+#   bundled server (resolved relative to the app tree, never via PATH), and
+#   names its bundled CLI by absolute path through T3CODE_CLI_PATH.
 # - No shell completions: the generated scripts hardcode `t3` in function
 #   names (`_t3_service_install`, ...), so a blanket rename would produce
 #   invalid identifiers. Nightly users can still run
@@ -26,6 +30,12 @@
   git,
   gh,
   cctools,
+  xcbuild,
+  electron_44,
+  copyDesktopItems,
+  makeDesktopItem,
+  libicns,
+  writeDarwinBundle,
   makeBinaryWrapper,
   versionCheckHook,
   writableTmpDirAsHomeHook,
@@ -44,10 +54,10 @@ stdenv.mkDerivation (finalAttrs: {
 
   pnpmWorkspaces = [
     # `...` suffix also pulls in workspace deps of the listed packages.
-    # The desktop workspace is excluded on purpose (see ../t3code/package.nix).
     "@t3tools/monorepo"
     "t3..."
     "@t3tools/web..."
+    "@t3tools/desktop..."
     "@t3tools/scripts..."
   ];
 
@@ -55,7 +65,7 @@ stdenv.mkDerivation (finalAttrs: {
     inherit (finalAttrs) pname version src pnpmWorkspaces;
     pnpm = pnpm_11;
     fetcherVersion = 4;
-    hash = "sha256-3IUAvIxnz4Ewm1Yk9w5sCBhG+CACndhqJdafUJAf8mc=";
+    hash = "sha256-reXWayWahyOJKTDp6GyOq9n5TsS4BpAMclWycpIxygo=";
   };
 
   resourceMonitor = rustPlatform.buildRustPackage {
@@ -82,10 +92,14 @@ stdenv.mkDerivation (finalAttrs: {
       cacert
     ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [
+      copyDesktopItems
       pkg-config
     ]
     ++ lib.optionals stdenv.hostPlatform.isDarwin [
       cctools
+      libicns
+      writeDarwinBundle
+      xcbuild
     ];
 
   buildInputs = lib.optionals stdenv.hostPlatform.isLinux [
@@ -121,7 +135,10 @@ stdenv.mkDerivation (finalAttrs: {
   buildPhase = ''
     runHook preBuild
 
-    pnpm exec vp run --filter t3 build
+    # Builds the t3 server bundle + web client first (desktop depends on it),
+    # then the desktop bundle, the preview CSS, and the Linux
+    # browser-secret helper (a no-op on other systems).
+    pnpm exec vp run --filter @t3tools/desktop build
     pnpm vp cache clean
 
     runHook postBuild
@@ -133,28 +150,90 @@ stdenv.mkDerivation (finalAttrs: {
   dontPatchELF = true;
   noAuditTmpdir = true;
 
-  installPhase = ''
-    runHook preInstall
+  installPhase =
+    ''
+      runHook preInstall
 
-    mkdir --parents "$out"/libexec/t3code-nightly/apps/server
-    cp --recursive --no-preserve=mode node_modules "$out"/libexec/t3code-nightly
-    cp --recursive --no-preserve=mode apps/server/{node_modules,dist} "$out"/libexec/t3code-nightly/apps/server
+      mkdir --parents "$out"/libexec/t3code-nightly/apps/desktop "$out"/libexec/t3code-nightly/apps/server
+      cp --recursive --no-preserve=mode node_modules "$out"/libexec/t3code-nightly
+      cp --recursive --no-preserve=mode apps/server/{node_modules,dist} "$out"/libexec/t3code-nightly/apps/server
+      cp --recursive --no-preserve=mode \
+        apps/desktop/{package.json,node_modules,dist-electron} \
+        "$out"/libexec/t3code-nightly/apps/desktop
 
-    find "$out"/libexec/t3code-nightly -xtype l -delete
+      mkdir --parents "$out"/libexec/t3code-nightly/apps/desktop/prod-resources
+      install --mode=444 ${
+        if stdenv.hostPlatform.isDarwin
+        then "assets/prod/black-macos-1024.png"
+        else "assets/prod/black-universal-1024.png"
+      } "$out"/libexec/t3code-nightly/apps/desktop/prod-resources/icon.png
+    ''
+    + lib.optionalString stdenv.hostPlatform.isLinux ''
+      install -Dm755 \
+        native/browser-secret/build/${stdenv.hostPlatform.node.arch}/t3-browser-secret \
+        "$out"/libexec/t3code-nightly/apps/desktop/prod-resources/browser-secret/t3-browser-secret
+    ''
+    + ''
 
-    install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
-      "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
+      find "$out"/libexec/t3code-nightly -xtype l -delete
 
-    # The resource monitor sidecar is only built in the electron-builder
-    # pipeline upstream, so the server checks this variable before any
-    # bundled location.
-    makeWrapper ${lib.getExe nodejs} "$out"/bin/t3-nightly \
-      --add-flags "$out"/libexec/t3code-nightly/apps/server/dist/bin.mjs \
-      --prefix PATH : ${lib.makeBinPath [git gh]} \
-      --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
+      install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
+        "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
 
-    runHook postInstall
-  '';
+      makeWrapper ${lib.getExe nodejs} "$out"/bin/t3-nightly \
+        --add-flags "$out"/libexec/t3code-nightly/apps/server/dist/bin.mjs \
+        --prefix PATH : ${lib.makeBinPath [git gh]} \
+        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
+
+      makeWrapper ${lib.getExe electron_44} "$out"/bin/t3code-nightly-desktop \
+        --add-flags "$out"/libexec/t3code-nightly/apps/desktop \
+        --prefix PATH : ${lib.makeBinPath [git gh]} \
+        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor \
+        --inherit-argv0
+    ''
+    + lib.optionalString stdenv.hostPlatform.isDarwin ''
+      # node-pty tries to chmod this helper at runtime, but the Nix store is
+      # immutable by then.
+      find "$out"/libexec/t3code-nightly \
+        -path '*/node-pty/prebuilds/darwin-*/spawn-helper' \
+        -exec chmod 755 {} +
+
+      mkdir --parents "$out/Applications/T3 Code Nightly (Alpha).app/Contents/"{MacOS,Resources}
+      png2icns \
+        "$out/Applications/T3 Code Nightly (Alpha).app/Contents/Resources/t3code-nightly.icns" \
+        assets/prod/black-macos-1024.png
+
+      # writeDarwinBundle is a shebangless bash script; run it explicitly via
+      # stdenv.shell to avoid Darwin's intermittent ENOEXEC fallback issues.
+      ${stdenv.shell} ${lib.getExe writeDarwinBundle} \
+        "$out" "T3 Code Nightly (Alpha)" t3code-nightly-desktop t3code-nightly
+    ''
+    + ''
+      mkdir --parents \
+        "$out"/share/icons/hicolor/{1024x1024,scalable}/apps
+      install --mode=444 ${
+        if stdenv.hostPlatform.isDarwin
+        then "assets/prod/black-macos-1024.png"
+        else "assets/prod/black-universal-1024.png"
+      } "$out"/share/icons/hicolor/1024x1024/apps/t3code-nightly.png
+      install --mode=444 assets/prod/logo.svg \
+        "$out"/share/icons/hicolor/scalable/apps/t3code-nightly.svg
+
+      runHook postInstall
+    '';
+
+  desktopItems = [
+    (makeDesktopItem {
+      name = "t3code-nightly";
+      desktopName = "T3 Code Nightly (Alpha)";
+      comment = "Nightly desktop control surface for local coding agents";
+      exec = "t3code-nightly-desktop %U";
+      terminal = false;
+      icon = "t3code-nightly";
+      startupWMClass = "t3code";
+      categories = ["Development"];
+    })
+  ];
 
   nativeInstallCheckInputs = [
     versionCheckHook
@@ -181,7 +260,7 @@ stdenv.mkDerivation (finalAttrs: {
     downloadPage = "https://t3.codes/download";
     changelog = "https://github.com/pingdotgg/t3code/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
-    mainProgram = "t3-nightly";
+    mainProgram = "t3code-nightly-desktop";
     platforms = lib.platforms.unix;
   };
 })

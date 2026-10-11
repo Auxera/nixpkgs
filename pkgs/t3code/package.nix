@@ -1,14 +1,18 @@
-# T3 Code CLI (`t3`) plus the resource-monitor sidecar, built from source.
+# T3 Code: CLI (`t3`) plus the Electron desktop app (`t3code-desktop`) and
+# the resource-monitor sidecar, built from source.
 #
-# Mirrors the upstream build paths (`vp run --filter t3 build` for the server
-# bundle + web client, `cargo build` for native/resource-monitor) and the
-# install layout of nixpkgs' t3code, with two deliberate differences:
-# - The Electron desktop app is omitted: it needs electron_44, which the
-#   pinned nixpkgs does not provide yet (max electron_42). Re-add it (see
-#   nixpkgs pkgs/by-name/t3/t3code/{package,unwrapped}.nix) once the pin
-#   catches up.
-# - The resource monitor's cargoHash only needs a refresh when upstream's
-#   Cargo.lock changes.
+# Mirrors the upstream build paths (`vp run --filter @t3tools/desktop build`
+# for the server bundle + web client + desktop bundle, `cargo build` for
+# native/resource-monitor) and the install layout of nixpkgs' t3code, with
+# two deliberate differences:
+# - electron_44 comes from the nixpkgs-electron flake input, which tracks
+#   nixos-unstable independently: the main nixpkgs pin does not provide
+#   electron_44 yet (max electron_42). Drop the input once the pin catches
+#   up.
+# - The resource monitor uses cargoHash instead of a separate derivation
+#   with cargoLock.lockFile: lockFile is read at eval time, forcing the src
+#   to realize while evaluating for other systems (breaks `nix flake
+#   check`). cargoHash only changes when Cargo.lock does.
 {
   lib,
   stdenv,
@@ -27,6 +31,12 @@
   git,
   gh,
   cctools,
+  xcbuild,
+  electron_44,
+  copyDesktopItems,
+  makeDesktopItem,
+  libicns,
+  writeDarwinBundle,
   makeBinaryWrapper,
   installShellFiles,
   versionCheckHook,
@@ -46,10 +56,10 @@ stdenv.mkDerivation (finalAttrs: {
 
   pnpmWorkspaces = [
     # `...` suffix also pulls in workspace deps of the listed packages.
-    # The desktop workspace is excluded on purpose (see file header).
     "@t3tools/monorepo"
     "t3..."
     "@t3tools/web..."
+    "@t3tools/desktop..."
     "@t3tools/scripts..."
   ];
 
@@ -57,7 +67,7 @@ stdenv.mkDerivation (finalAttrs: {
     inherit (finalAttrs) pname version src pnpmWorkspaces;
     pnpm = pnpm_11;
     fetcherVersion = 4;
-    hash = "sha256-nCEZcB5r3xzN/CSWED0IBRhsu3iGd0B88/Lv1v/YaUU=";
+    hash = "sha256-2dGEHOQrnidTei54NlZTJh5u5/i810hb2LddK4XfUNQ=";
   };
 
   resourceMonitor = rustPlatform.buildRustPackage {
@@ -66,9 +76,6 @@ stdenv.mkDerivation (finalAttrs: {
 
     sourceRoot = "${finalAttrs.src.name}/native/resource-monitor";
 
-    # NOTE: cargoLock.lockFile would read Cargo.lock at eval time, forcing
-    # the src to realize while evaluating for other systems (breaks
-    # `nix flake check`). cargoHash only changes when Cargo.lock does.
     cargoHash = "sha256-5cmG2daM1bVOA23gjjoalbx0fEL1hmqV6WZov0sUZp8=";
   };
 
@@ -85,10 +92,14 @@ stdenv.mkDerivation (finalAttrs: {
       cacert
     ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [
+      copyDesktopItems
       pkg-config
     ]
     ++ lib.optionals stdenv.hostPlatform.isDarwin [
       cctools
+      libicns
+      writeDarwinBundle
+      xcbuild
     ];
 
   buildInputs = lib.optionals stdenv.hostPlatform.isLinux [
@@ -124,7 +135,10 @@ stdenv.mkDerivation (finalAttrs: {
   buildPhase = ''
     runHook preBuild
 
-    pnpm exec vp run --filter t3 build
+    # Builds the t3 server bundle + web client first (desktop depends on it),
+    # then the desktop bundle, the preview CSS, and the Linux
+    # browser-secret helper (a no-op on other systems).
+    pnpm exec vp run --filter @t3tools/desktop build
     pnpm vp cache clean
 
     runHook postBuild
@@ -136,34 +150,96 @@ stdenv.mkDerivation (finalAttrs: {
   dontPatchELF = true;
   noAuditTmpdir = true;
 
-  installPhase = ''
-    runHook preInstall
+  installPhase =
+    ''
+      runHook preInstall
 
-    mkdir --parents "$out"/libexec/t3code/apps/server
-    cp --recursive --no-preserve=mode node_modules "$out"/libexec/t3code
-    cp --recursive --no-preserve=mode apps/server/{node_modules,dist} "$out"/libexec/t3code/apps/server
+      mkdir --parents "$out"/libexec/t3code/apps/desktop "$out"/libexec/t3code/apps/server
+      cp --recursive --no-preserve=mode node_modules "$out"/libexec/t3code
+      cp --recursive --no-preserve=mode apps/server/{node_modules,dist} "$out"/libexec/t3code/apps/server
+      cp --recursive --no-preserve=mode \
+        apps/desktop/{package.json,node_modules,dist-electron} \
+        "$out"/libexec/t3code/apps/desktop
 
-    find "$out"/libexec/t3code -xtype l -delete
+      mkdir --parents "$out"/libexec/t3code/apps/desktop/prod-resources
+      install --mode=444 ${
+        if stdenv.hostPlatform.isDarwin
+        then "assets/prod/black-macos-1024.png"
+        else "assets/prod/black-universal-1024.png"
+      } "$out"/libexec/t3code/apps/desktop/prod-resources/icon.png
+    ''
+    + lib.optionalString stdenv.hostPlatform.isLinux ''
+      install -Dm755 \
+        native/browser-secret/build/${stdenv.hostPlatform.node.arch}/t3-browser-secret \
+        "$out"/libexec/t3code/apps/desktop/prod-resources/browser-secret/t3-browser-secret
+    ''
+    + ''
 
-    install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
-      "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
+      find "$out"/libexec/t3code -xtype l -delete
 
-    # The resource monitor sidecar is only built in the electron-builder
-    # pipeline upstream, so the server checks this variable before any
-    # bundled location.
-    makeWrapper ${lib.getExe nodejs} "$out"/bin/t3 \
-      --add-flags "$out"/libexec/t3code/apps/server/dist/bin.mjs \
-      --prefix PATH : ${lib.makeBinPath [git gh]} \
-      --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
+      makeWrapper ${lib.getExe nodejs} "$out"/bin/t3 \
+        --add-flags "$out"/libexec/t3code/apps/server/dist/bin.mjs \
+        --prefix PATH : ${lib.makeBinPath [git gh]} \
+        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
 
-    runHook postInstall
-  '';
+      install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
+        "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
+
+      makeWrapper ${lib.getExe electron_44} "$out"/bin/t3code-desktop \
+        --add-flags "$out"/libexec/t3code/apps/desktop \
+        --prefix PATH : ${lib.makeBinPath [git gh]} \
+        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor \
+        --inherit-argv0
+    ''
+    + lib.optionalString stdenv.hostPlatform.isDarwin ''
+      # node-pty tries to chmod this helper at runtime, but the Nix store is
+      # immutable by then.
+      find "$out"/libexec/t3code \
+        -path '*/node-pty/prebuilds/darwin-*/spawn-helper' \
+        -exec chmod 755 {} +
+
+      mkdir --parents "$out/Applications/T3 Code (Alpha).app/Contents/"{MacOS,Resources}
+      png2icns \
+        "$out/Applications/T3 Code (Alpha).app/Contents/Resources/t3code.icns" \
+        assets/prod/black-macos-1024.png
+
+      # writeDarwinBundle is a shebangless bash script; run it explicitly via
+      # stdenv.shell to avoid Darwin's intermittent ENOEXEC fallback issues.
+      ${stdenv.shell} ${lib.getExe writeDarwinBundle} \
+        "$out" "T3 Code (Alpha)" t3code-desktop t3code
+    ''
+    + ''
+      mkdir --parents \
+        "$out"/share/icons/hicolor/{1024x1024,scalable}/apps
+      install --mode=444 ${
+        if stdenv.hostPlatform.isDarwin
+        then "assets/prod/black-macos-1024.png"
+        else "assets/prod/black-universal-1024.png"
+      } "$out"/share/icons/hicolor/1024x1024/apps/t3code.png
+      install --mode=444 assets/prod/logo.svg \
+        "$out"/share/icons/hicolor/scalable/apps/t3code.svg
+
+      runHook postInstall
+    '';
 
   postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
     for shell in bash fish zsh; do
       installShellCompletion --cmd t3 --"$shell" <("$out/bin/t3" --completions "$shell")
     done
   '';
+
+  desktopItems = [
+    (makeDesktopItem {
+      name = "t3code";
+      desktopName = "T3 Code (Alpha)";
+      comment = "Minimal web GUI for coding agents";
+      exec = "t3code-desktop %U";
+      terminal = false;
+      icon = "t3code";
+      startupWMClass = "t3code";
+      categories = ["Development"];
+    })
+  ];
 
   nativeInstallCheckInputs = [
     versionCheckHook
@@ -188,7 +264,7 @@ stdenv.mkDerivation (finalAttrs: {
     downloadPage = "https://t3.codes/download";
     changelog = "https://github.com/pingdotgg/t3code/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
-    mainProgram = "t3";
+    mainProgram = "t3code-desktop";
     platforms = lib.platforms.unix;
   };
 })
