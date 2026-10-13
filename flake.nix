@@ -3,6 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Tracks nixos-unstable independently of the main pin: t3code's desktop
+    # needs electron_44, which the main pin does not provide yet. Drop this
+    # input and take electron_44 from nixpkgs once the pin catches up.
+    nixpkgs-electron.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     bun2nix = {
       url = "github:nix-community/bun2nix";
@@ -18,6 +22,7 @@
   outputs = {
     self,
     nixpkgs,
+    nixpkgs-electron,
     bun2nix,
     flake-utils,
     ...
@@ -49,9 +54,15 @@
       system: let
         alejandra = pkgs.alejandra;
 
+        # electron_44 for the t3code desktop apps; see the nixpkgs-electron
+        # input comment above.
+        electronOverlay = final: prev: {
+          electron_44 = nixpkgs-electron.legacyPackages.${system}.electron_44;
+        };
+
         pkgs = import nixpkgs {
           inherit system alejandra;
-          overlays = [self.overlays.default bun2nix.overlays.default];
+          overlays = [self.overlays.default bun2nix.overlays.default electronOverlay];
         };
 
         auxera-pkgs = pkgs.auxera;
