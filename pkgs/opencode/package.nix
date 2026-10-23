@@ -16,13 +16,13 @@
 }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode";
-  version = "2.0.25";
+  version = "2.1.3";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-1q90OvTRg0Jdf46L1M2YY2CwGRC3ypJ3O5JF4WqYqvY=";
+    hash = "sha256-b4+ZFgnlAuQMkRXBnYsEcHdhPsTfCZnEYArzdWP2TK4=";
   };
 
   # Mirrors upstream nix/node_modules.nix (same bun filters/flags and
@@ -93,7 +93,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       outputHashMode = "recursive";
       outputHash =
         if stdenvNoCC.hostPlatform.system == "x86_64-linux"
-        then "sha256-kDhZibqc7DimuEyoI7kHo3KokWwY+k8hTlnLBpkItd8="
+        then "sha256-iXf8Uwr3aIIjWk63CO+q//O8CLmR0FSyLQZ5xe9iDSI="
         else if stdenvNoCC.hostPlatform.system == "aarch64-darwin"
         then "sha256-H4BK/EtvtT1Tj1yBt7xS9XSPtK4LT4s2vfXOkXCK5zc="
         else throw "unsupported system ${stdenvNoCC.hostPlatform.system} (see upstream nix/hashes.json)";
