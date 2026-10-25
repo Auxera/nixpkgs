@@ -120,8 +120,9 @@ stdenv.mkDerivation (finalAttrs: {
     # pnpm 11 otherwise detects dependency drift and reinstalls, including
     # lifecycle scripts.
     export pnpm_config_verify_deps_before_run=false
-    # Our pnpm (11.8.0) is older than the upstream pin (11.10.0); keep it from
-    # trying to self-switch to the pinned version (no network in build phase).
+    # Keep pnpm from trying to self-switch to the upstream-pinned version
+    # (no network in build phase). pnpm itself comes from the
+    # nixpkgs-electron overlay, which tracks upstream's 11.10.0 pin.
     export npm_config_manage_package_manager_versions=false
     export pnpm_config_manage_package_manager_versions=false
 
@@ -175,20 +176,23 @@ stdenv.mkDerivation (finalAttrs: {
     ''
     + ''
 
-      find "$out"/libexec/t3code-nightly -xtype l -delete
+        find "$out"/libexec/t3code-nightly -xtype l -delete
 
-      install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
-        "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
+        install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
+          "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
 
-      makeWrapper ${lib.getExe nodejs} "$out"/bin/t3-nightly \
-        --add-flags "$out"/libexec/t3code-nightly/apps/server/dist/bin.mjs \
-        --prefix PATH : ${lib.makeBinPath [git gh]} \
-        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
+        makeWrapper ${lib.getExe nodejs} "$out"/bin/t3-nightly \
+          --add-flags "$out"/libexec/t3code-nightly/apps/server/dist/bin.mjs \
+          --prefix PATH : ${lib.makeBinPath [git gh]} \
+          --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor
 
       makeWrapper ${lib.getExe electron_44} "$out"/bin/t3code-nightly-desktop \
-        --add-flags "$out"/libexec/t3code-nightly/apps/desktop \
-        --prefix PATH : ${lib.makeBinPath [git gh]} \
-        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor \
+          --add-flags "$out"/libexec/t3code-nightly/apps/desktop \
+          --prefix PATH : ${lib.makeBinPath [git gh]} \
+          --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code-nightly/resource-monitor/t3-resource-monitor \
+          # The store is immutable, so in-app updates could never apply;
+        # disable them instead of failing mid-download (user-overridable).
+        --set-default T3CODE_DISABLE_AUTO_UPDATE true \
         --inherit-argv0
     ''
     + lib.optionalString stdenv.hostPlatform.isDarwin ''

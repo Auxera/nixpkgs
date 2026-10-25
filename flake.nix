@@ -54,9 +54,12 @@
       system: let
         alejandra = pkgs.alejandra;
 
-        # electron_44 for the t3code desktop apps; see the nixpkgs-electron
-        # input comment above.
+        # electron_44 and a newer pnpm_11 for the t3code packages; see the
+        # nixpkgs-electron input comment above. The main pin's pnpm (11.8.0)
+        # predates upstream's 11.10.0 pin and aborts (SIGABRT) while
+        # fetching the stable tree on macOS CI runners; 11.27 does not.
         electronOverlay = final: prev: {
+          pnpm_11 = nixpkgs-electron.legacyPackages.${system}.pnpm_11;
           electron_44 = nixpkgs-electron.legacyPackages.${system}.electron_44;
         };
 
