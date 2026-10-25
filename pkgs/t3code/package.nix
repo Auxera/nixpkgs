@@ -176,22 +176,22 @@ stdenv.mkDerivation (finalAttrs: {
     ''
     + ''
 
-        find "$out"/libexec/t3code -xtype l -delete
+      find "$out"/libexec/t3code -xtype l -delete
 
-        makeWrapper ${lib.getExe nodejs} "$out"/bin/t3 \
-          --add-flags "$out"/libexec/t3code/apps/server/dist/bin.mjs \
-          --prefix PATH : ${lib.makeBinPath [git gh]} \
-          --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
+      makeWrapper ${lib.getExe nodejs} "$out"/bin/t3 \
+        --add-flags "$out"/libexec/t3code/apps/server/dist/bin.mjs \
+        --prefix PATH : ${lib.makeBinPath [git gh]} \
+        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
 
-        install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
-          "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
+      install -Dm755 ${finalAttrs.resourceMonitor}/bin/t3-resource-monitor \
+        "$out"/libexec/t3code/resource-monitor/t3-resource-monitor
 
+      # The store is immutable, so in-app updates could never apply;
+      # disable them instead of failing mid-download (user-overridable).
       makeWrapper ${lib.getExe electron_44} "$out"/bin/t3code-desktop \
-          --add-flags "$out"/libexec/t3code/apps/desktop \
-          --prefix PATH : ${lib.makeBinPath [git gh]} \
-          --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor \
-          # The store is immutable, so in-app updates could never apply;
-        # disable them instead of failing mid-download (user-overridable).
+        --add-flags "$out"/libexec/t3code/apps/desktop \
+        --prefix PATH : ${lib.makeBinPath [git gh]} \
+        --set-default T3CODE_RESOURCE_MONITOR_PATH "$out"/libexec/t3code/resource-monitor/t3-resource-monitor \
         --set-default T3CODE_DISABLE_AUTO_UPDATE true \
         --inherit-argv0
     ''
@@ -257,6 +257,10 @@ stdenv.mkDerivation (finalAttrs: {
     extraArgs = [
       "--flake"
       "--use-github-releases"
+      # Plain vX.Y.Z tags only. Nightlies and previews are newer GitHub
+      # releases, and scheduled updates in this repo are auto-merged.
+      "--version-regex"
+      "v([0-9]+\\.[0-9]+\\.[0-9]+)$"
       "--subpackage"
       "pnpmDeps"
     ];
