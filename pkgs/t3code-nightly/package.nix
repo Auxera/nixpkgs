@@ -121,8 +121,7 @@ stdenv.mkDerivation (finalAttrs: {
     # lifecycle scripts.
     export pnpm_config_verify_deps_before_run=false
     # Keep pnpm from trying to self-switch to the upstream-pinned version
-    # (no network in build phase). pnpm itself comes from the
-    # nixpkgs-electron overlay, which tracks upstream's 11.10.0 pin.
+    # (no network in build phase). pnpm_11 from the nixpkgs pin is 11.27.
     export npm_config_manage_package_manager_versions=false
     export pnpm_config_manage_package_manager_versions=false
 

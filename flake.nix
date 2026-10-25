@@ -3,10 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    # Tracks nixos-unstable independently of the main pin: t3code's desktop
-    # needs electron_44, which the main pin does not provide yet. Drop this
-    # input and take electron_44 from nixpkgs once the pin catches up.
-    nixpkgs-electron.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     bun2nix = {
       url = "github:nix-community/bun2nix";
@@ -22,7 +18,6 @@
   outputs = {
     self,
     nixpkgs,
-    nixpkgs-electron,
     bun2nix,
     flake-utils,
     ...
@@ -54,18 +49,19 @@
       system: let
         alejandra = pkgs.alejandra;
 
-        # electron_44 and a newer pnpm_11 for the t3code packages; see the
-        # nixpkgs-electron input comment above. The main pin's pnpm (11.8.0)
-        # predates upstream's 11.10.0 pin and aborts (SIGABRT) while
-        # fetching the stable tree on macOS CI runners; 11.27 does not.
-        electronOverlay = final: prev: {
-          pnpm_11 = nixpkgs-electron.legacyPackages.${system}.pnpm_11;
-          electron_44 = nixpkgs-electron.legacyPackages.${system}.electron_44;
+        # nixpkgs removed pnpm_9 (EOL 2026-04-30). openspec still depends on
+        # it; that migration is happening separately, so keep 9.15.9 here.
+        pnpm9Overlay = final: prev: {
+          pnpm_9 = final.callPackage (nixpkgs + "/pkgs/development/tools/pnpm/generic.nix") {
+            version = "9.15.9";
+            hash = "sha256-z4anrXZEBjldQoam0J1zBxFyCsxtk+nc6ax6xNxKKKc=";
+            nodejs = null;
+          };
         };
 
         pkgs = import nixpkgs {
           inherit system alejandra;
-          overlays = [self.overlays.default bun2nix.overlays.default electronOverlay];
+          overlays = [self.overlays.default bun2nix.overlays.default pnpm9Overlay];
         };
 
         auxera-pkgs = pkgs.auxera;

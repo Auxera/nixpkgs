@@ -4,11 +4,7 @@
 # Mirrors the upstream build paths (`vp run --filter @t3tools/desktop build`
 # for the server bundle + web client + desktop bundle, `cargo build` for
 # native/resource-monitor) and the install layout of nixpkgs' t3code, with
-# two deliberate differences:
-# - electron_44 comes from the nixpkgs-electron flake input, which tracks
-#   nixos-unstable independently: the main nixpkgs pin does not provide
-#   electron_44 yet (max electron_42). Drop the input once the pin catches
-#   up.
+# one deliberate difference:
 # - The resource monitor uses cargoHash instead of a separate derivation
 #   with cargoLock.lockFile: lockFile is read at eval time, forcing the src
 #   to realize while evaluating for other systems (breaks `nix flake
@@ -121,8 +117,7 @@ stdenv.mkDerivation (finalAttrs: {
     # lifecycle scripts.
     export pnpm_config_verify_deps_before_run=false
     # Keep pnpm from trying to self-switch to the upstream-pinned version
-    # (no network in build phase). pnpm itself comes from the
-    # nixpkgs-electron overlay, which tracks upstream's 11.10.0 pin.
+    # (no network in build phase). pnpm_11 from the nixpkgs pin is 11.27.
     export npm_config_manage_package_manager_versions=false
     export pnpm_config_manage_package_manager_versions=false
 
