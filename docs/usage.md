@@ -44,38 +44,3 @@ Example 1: enable notifier module (no manual XDG file wiring)
     };
 }
 ```
-
-Example 2: enable plannotator module with env overrides
-
-```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager.url = "github:nix-community/home-manager";
-    auxeraPkgs.url = "github:auxera/nixpkgs";
-  };
-
-  outputs = { nixpkgs, home-manager, auxeraPkgs, ... }:
-    let
-      system = builtins.currentSystem;
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [ auxeraPkgs.overlays.default ];
-      };
-    in
-    {
-      homeConfigurations.user = home-manager.lib.homeManagerConfiguration {
-        inherit pkgs;
-        modules = [
-          auxeraPkgs.homeManagerModules.default
-          {
-            programs.plannotator-opencode-plugin.enable = true;
-            programs.plannotator-opencode-plugin.env = {
-              PLANNOTATOR_MODE = "review";
-            };
-          }
-        ];
-      };
-    };
-}
-```

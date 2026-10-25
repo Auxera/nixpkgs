@@ -2,7 +2,6 @@
   imports = [
     ./opencode-notifier-plugin
     ./openspec
-    ./plannotator-opencode-plugin
     ./superpowers-opencode-plugin
   ];
 
