@@ -95,7 +95,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
         if stdenvNoCC.hostPlatform.system == "x86_64-linux"
         then "sha256-TRTEjBYBekQY+NMNGd87ywiPTPsxrofhcT58HtJM1Q0="
         else if stdenvNoCC.hostPlatform.system == "aarch64-darwin"
-        then "sha256-H4BK/EtvtT1Tj1yBt7xS9XSPtK4LT4s2vfXOkXCK5zc="
+        then "sha256-dKBAdKsVvCVOaugbx1vW95tUULfHJMJmZUl5QgWhMjU="
         else throw "unsupported system ${stdenvNoCC.hostPlatform.system} (see upstream nix/hashes.json)";
 
       meta.platforms = [
