@@ -64,10 +64,13 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       buildPhase = ''
         runHook preBuild
         export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+        # Include root dependencies so Bun resolves the same peer contexts as a normal install.
+        # Excluding root ('!./') yields duplicate OpenTUI copies and crashes the TUI at startup
+        # with `e.replace is not a function` (see anomalyco/opencode#56856).
         bun install \
           --cpu="${bunCpu}" \
           --os="${bunOs}" \
-          --filter '!./' \
+          --filter './' \
           --filter './packages/cli' \
           --filter './packages/desktop' \
           --filter './packages/app' \
@@ -93,9 +96,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       outputHashMode = "recursive";
       outputHash =
         if stdenvNoCC.hostPlatform.system == "x86_64-linux"
-        then "sha256-XCSZ6fykvmhMMbh7nvhoA/hucWo8hvsht5pey7dy+W0="
+        then "sha256-hV75d+Zs51vB6MfZ9luH1JB6jO+tqp9RYqqYyi3zQM4="
         else if stdenvNoCC.hostPlatform.system == "aarch64-darwin"
-        then "sha256-emiC3HynMXB2sr6HTaOhOXQ2Lpci2jomGwGxRJVQK8c="
+        then "sha256-yyD2+XAtMEsL2s47X7YX9/z+C6FH93w+yCY/xDRK6yc="
         else throw "unsupported system ${stdenvNoCC.hostPlatform.system} (see upstream nix/hashes.json)";
 
       meta.platforms = [
